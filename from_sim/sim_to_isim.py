@@ -3,6 +3,7 @@
 This works entirely at the single exposure level. Some parts wrap romanisim.
 """
 
+import warnings
 import re
 import numpy as np
 import gwcs
@@ -12,6 +13,8 @@ from astropy.coordinates import SkyCoord
 import asdf
 import galsim
 from galsim import roman
+import sys
+import yaml
 
 import roman_datamodels
 import roman_datamodels.maker_utils as maker_utils
@@ -29,10 +32,11 @@ def hdu_sip_hflip(data,header):
     header['CD2_1'] = -header['CD2_1']
     try:
         # if there is a SIP table, we flip it.
-        # the odd p's need a sign flip to reverse the direction of the SIP u-axis
+        # for A: the even p's need a sign flip to reverse the direction of the SIP u-axis
+        # for B: the odd p's need a sign flip to reverse the direction of the SIP u-axis
         a_order = int(header['A_ORDER'])
         b_order = int(header['B_ORDER'])
-        for p in range(1,a_order+1,2):
+        for p in range(0,a_order+1,2):
            for q in range(a_order+1-p):
               keyword = 'A_{:1d}_{:1d}'.format(p,q)
               if keyword in header:
@@ -58,7 +62,8 @@ def hdu_sip_vflip(data,header):
     header['CD2_2'] = -header['CD2_2']
     try:
         # if there is a SIP table, we flip it.
-        # the odd p's need a sign flip to reverse the direction of the SIP u-axis
+        # for A: the odd q's need a sign flip to reverse the direction of the SIP v-axis
+        # for B: the even q's need a sign flip to reverse the direction of the SIP v-axis
         a_order = int(header['A_ORDER'])
         b_order = int(header['B_ORDER'])
         for q in range(1,a_order+1,2):
@@ -66,7 +71,7 @@ def hdu_sip_vflip(data,header):
               keyword = 'A_{:1d}_{:1d}'.format(p,q)
               if keyword in header:
                   header[keyword] = -float(header[keyword])
-        for q in range(1,b_order+1,2):
+        for q in range(0,b_order+1,2):
            for p in range(b_order+1-q):
               keyword = 'B_{:1d}_{:1d}'.format(p,q)
               if keyword in header:
@@ -90,6 +95,7 @@ class Image2D:
     idsca : ordered pair, (obs ID, SCA)
     ra_, dec_, pa_ : coordinates of the observation
     af, af2 : Level 1 & Level 2 files
+    refdata : reference data
 
     Methods:
     __init__ : constructor
@@ -148,15 +154,13 @@ class Image2D:
         self.dec_ = float(self.header['DEC_TARG'])
         self.pa_ = float(self.header['PA_OBSY'])
 
-    def simulate(self, seed=43):
+    def simulate(self, use_read_pattern, seed=43):
         """This is based on the romanisim.image.simulate function,
         but some functionality has been changed to be useful for this class.
 
         Uses 2 consecutive seeds, so don't start this with, e.g., seed=20 and then seed=21!
         """
 
-        use_read_pattern = [[0], [1], [2,3], [4,5,6,7,8,9], [10,11,12,13,14,15], [16,17,18,19,20,21,22,23],
-            [24,25,26,27,28,29,30,31,32,33], [34]]
         target_pattern = 1000000
         parameters.read_pattern[target_pattern] = use_read_pattern
         metadata = ris.set_metadata(date = self.date, bandpass = self.filter,
@@ -269,6 +273,8 @@ class Image2D:
         self.af2 = asdf.AsdfFile()
         self.af2.tree = {'roman': im2, 'romanisim': romanisimdict2}
 
+        self.refdata = refdata
+
 
     def L1_write_to(self, filename):
         """Writes to a file if there is an ASDF file present.
@@ -288,16 +294,110 @@ class Image2D:
         else:
             return False
 
-if __name__ == "__main__":
-    """This is a simple script to convert Roman to L1/L2."""
+class Image2D_from_L1(Image2D):
+    """Similar to Image2D, but constructed from L1 data file.
+
+    with Image2D_from_L1(infile, refdata, thewcs) as L1:
+        ...
+    """
+
+    # Context manager functions
+    def __enter__(self):
+        return self
+    def __exit__(self, exception_type, exception_value, exception_traceback):
+        self.af.close()
+
+    # Constructor
+    def __init__(self, infile, refdata, thewcs, verbose_err=True):
+        """Constructor. The arguments are:
+        infile : L1 data file (ASDF format)
+        refdata : the calibration reference data
+        thewcs : WCS object (in some form -- currently FITS Header or GalSimWCS, though we've had issues with the latter)
+        """
+
+        self.af = asdf.open(infile)
+        self.refdata = refdata
+        self.thewcs = thewcs
+
+    def psuedocalibrate(self):
+        """Generates a simple calibrated (L2) image.
+
+        This doesn't use romancal, but can be useful as a pass-through function.
+        """
+
+        # collect information
+        nborder = parameters.nborder
+
+        # Make idealized L2 data
+        refdata = self.refdata
+        l1dq = np.zeros(np.shape(self.af['roman']['data'][:,nborder:-nborder,nborder:-nborder]), dtype=np.uint32)
+        slopeinfo = rimage.make_l2(self.af['roman']['data'][:,nborder:-nborder,nborder:-nborder]*u.DN,
+                            self.af['roman']['meta']['exposure']['read_pattern'],
+                            read_noise=refdata['readnoise'],
+                            gain=refdata['gain'], flat=refdata['flat'], linearity=refdata['linearity'],
+                            darkrate=refdata['dark'], dq=l1dq)
+        l2dq = np.bitwise_or.reduce(l1dq, axis=0)
+
+        # make WCS --- a few ways of doing this
+        while True:
+            wcsobj = None
+            class Blank:
+                pass
+
+            # first try a FITS header
+            if isinstance(self.thewcs, fits.Header):
+                wcsobj = Blank()
+                wcsobj.header = Blank()
+                wcsobj.header.header = self.thewcs
+                break
+
+            # should work if this is a GalSim WCS
+            try:
+                header = fits.Header()
+                self.thewcs.writeToFitsHeader(header, galsim.BoundsI(0,4088,0,4088))
+                # offset to FITS convention -- this is undone later
+                header['CRPIX1'] += 1; header['CRPIX2'] += 1
+                wcsobj = Blank()
+                wcsobj.header = Blank()
+                wcsobj.header.header = header
+                warnings.warn('Use of GalSim WCS in calibrate is not fully working yet!')
+                break
+            except Exception as e:
+                if verbose_err:
+                    print('Tried GalSim, failed')
+                    print(e)
+                wcsobj = None
+
+            raise Exception('Unrecognized WCS')
+
+        persistence = rip.Persistence()
+        im2, extras2 = rimage.make_asdf(
+            *slopeinfo, metadata=self.af['roman']['meta'], persistence=persistence,
+            dq=l2dq, imwcs=wcsobj, gain=refdata['gain'])
+
+        # Create metadata for simulation parameter
+        romanisimdict2 = {'version': rstversion}
+        romanisimdict2.update(**extras2)
+
+        # Write file
+        self.af2 = asdf.AsdfFile()
+        self.af2.tree = {'roman': im2, 'romanisim': romanisimdict2}
+
+def simpletest():
+    """This is a simple script to convert Roman to L1/L2.
+    For internal testing only, not production.
+    """
+
+    use_read_pattern = [[0], [1], [2,3], [4,5,6,7,8,9], [10,11,12,13,14,15], [16,17,18,19,20,21,22,23],
+        [24,25,26,27,28,29,30,31,32,33], [34]]
 
     x = Image2D('anlsim', fname='/fs/scratch/PCON0003/cond0007/anl-run-in-prod/truth/Roman_WAS_truth_F184_14747_10.fits')
     print(x.galsimwcs)
     print(x.date, x.idsca)
     print('>>', x.image)
-    x.simulate()
+    x.simulate(use_read_pattern)
     x.L1_write_to('sim1.asdf')
-    x.L2_write_to('sim2.asdf')
+    x.L2_write_to('sim2-direct.asdf')
 
     f = asdf.open('sim1.asdf')
     print(f.info())
@@ -307,8 +407,61 @@ if __name__ == "__main__":
     print(f['roman']['meta'])
     fits.PrimaryHDU(f['roman']['data']).writeto('L1.fits', overwrite=True)
 
+    with Image2D_from_L1('sim1.asdf', x.refdata, x.header) as ff:
+        ff.pseudocalibrate()
+        ff.L2_write_to('sim2.asdf')
+
     f = asdf.open('sim2.asdf')
     print(f.info())
     print('corners:')
     print(f['roman']['meta']['wcs']((0,0,4087,4087),(0,4087,0,4087)))
     fits.PrimaryHDU(f['roman']['data']).writeto('L2.fits', overwrite=True)
+
+if __name__ == "__main__":
+    """Stand-alone function to convert from OpenUniverse to L1. Call it with:
+
+    python sim_to_isim <config file>
+
+    The config file is in YAML format and has the fields:
+    Required:
+    'IN': input file name (FITS)
+    'OUT': output file name (must end in '.asdf')
+    'READS': a list of length 2*Ngrp: 0th group is [READS[0]:READS[1]], then [READS[2]:READS[3]], etc.
+
+    Optional:
+    'FITSOUT': also write a FITS output (default: False; mostly useful for visualization in ds9)
+    'SEED': RNG seed
+    """
+
+    # read settings
+    with open(sys.argv[1]) as f:
+        config = yaml.safe_load(f)
+
+    print('Reading from <--', config['IN'])
+    print('Writing to -->', config['OUT'])
+    use_read_pattern = []
+    ng = len(config['READS'])//2
+    for j in range(ng):
+        use_read_pattern.append(list(range(int(config['READS'][2*j]), int(config['READS'][2*j+1]))))
+    print('Read pattern:', use_read_pattern)
+
+    # Optional inputs
+    seed=43
+    if 'SEED' in config:
+        seed=int(config['SEED'])
+
+    x = Image2D('anlsim', fname=config['IN'])
+    x.simulate(use_read_pattern)
+    x.L1_write_to(config['OUT'])
+
+    # header information for the WCS
+    x.header['COMMENT'] = 'truth wcs from sim_to_isim'
+    x.header.tofile(config['OUT'][:-5] + '_asdf_wcshead.txt', overwrite=True)
+
+    # also write the FITS file for viewing
+    if 'FITSOUT' in config:
+        if config['FITSOUT']:
+            with asdf.open(config['OUT']) as f:
+                fits.PrimaryHDU(f['roman']['data']).writeto(config['OUT'][:-5] + '_asdf_to.fits', overwrite=True)
+
+    # simpletest()

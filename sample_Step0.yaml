@@ -1,0 +1,8 @@
+---
+# Input file
+IN: '/fs/scratch/PCON0003/cond0007/anl-run-in-prod/truth/Roman_WAS_truth_F184_14747_10.fits'
+OUT: 'sim1.asdf'
+READS: [0, 1, 1, 2, 2, 4, 4, 10, 10, 26, 26, 32, 32, 34, 34, 35]
+FITSOUT: True
+SEED: 500
+...
