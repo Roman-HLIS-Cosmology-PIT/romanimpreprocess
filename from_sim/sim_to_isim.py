@@ -20,6 +20,9 @@ import roman_datamodels
 import roman_datamodels.maker_utils as maker_utils
 from romanisim import parameters, util, wcs, image as rimage, ris_make_utils as ris, persistence as rip, l1 as rstl1, __version__ as rstversion
 
+# local imports
+from ..utils.ipc_linearity import IL, ipc_rev
+
 def hdu_sip_hflip(data,header):
     """Horizontal flip of SCA and WCS. Assumes SIP convention."""
 
@@ -79,6 +82,68 @@ def hdu_sip_vflip(data,header):
     except:
         print('Exception in SIP table, skipping ...')
         pass
+
+def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, tstart=None):
+    """Make an L1 image with the full calibration information.
+
+    This carries out similar steps to romanisim.l1.make_l1, but
+    provides us a bit more control over the settings..
+
+    Parameters
+    ----------
+    counts : galsim.Image object (mean e per pixel)
+    read_pattern : list[list] (MA table)
+    caldir: dictionary (with the reference files)
+    rng : galsim.BaseDeviate
+    persistence : romanisim.persistence.Persistence
+
+    Returns
+    -------
+    l1, dq : 3D image and quality array
+    """
+
+    # generate the reset noise (will complain if rng is None!)
+    resetnoise = np.zeros_like(counts.array)
+    nb = (8192-np.shape(resetnoise)[-1]//2)%256 # get border size
+    galsim.GaussianDeviate(rng).generate(resetnoise)
+    with asdf.open(caldir['read']) as f:
+        resetnoise *= f['roman']['resetnoise'][nb:-nb,nb:-nb]
+    with asdf.open(caldir['gain']) as f:
+        resetnoise *= f['roman']['data'][nb:-nb,nb:-nb]
+    # now resetnoise is a random image in electrons
+
+    tij = rstl1.read_pattern_to_tij(read_pattern)
+
+    print('-->', resetnoise[:4,:4], tij)
+
+    # this model includes linearity *and* IPC.
+    # default application is electrons_in=False, electrons_out=False
+    # (the .apply method is called in apportion_counts_to_resultants with
+    # electrons_in = True -- this means that electrons go in and raw DN go out,
+    # so actually includes the gain as well!)
+    e2dn_model = IL(
+        caldir['linearitylegendre'],
+        caldir['gain'],
+        caldir['ipc4d']
+    )
+    # set the size of the data quality array
+    print(read_pattern)
+    print(len(read_pattern))
+    e2dn_model.set_dq(ngroup=len(read_pattern), nborder=4)
+
+    # generates resultants in DN
+    resultants, dq = rstl1.apportion_counts_to_resultants(
+        counts.array, tij, inv_linearity=e2dn_model, crparam={},
+        persistence=persistence, tstart=tstart,
+        rng=rng, seed=None)
+
+    with asdf.open(caldir['read']) as f:
+        resultants = rstl1.add_read_noise_to_resultants(
+            resultants, tij, rng=rng, seed=None,
+            read_noise=f['roman']['data'],
+            pedestal_extra_noise=None)
+
+    return resultants, dq
 
 class Image2D:
 
@@ -154,11 +219,12 @@ class Image2D:
         self.dec_ = float(self.header['DEC_TARG'])
         self.pa_ = float(self.header['PA_OBSY'])
 
-    def simulate(self, use_read_pattern, seed=43):
+    def simulate(self, use_read_pattern, caldir=None, seed=43):
         """This is based on the romanisim.image.simulate function,
         but some functionality has been changed to be useful for this class.
 
-        Uses 2 consecutive seeds, so don't start this with, e.g., seed=20 and then seed=21!
+        The "caldir" is a dictionary of where the calibration files are
+        located.
         """
 
         target_pattern = 1000000
@@ -203,10 +269,28 @@ class Image2D:
         # persistence -> None
         persistence = rip.Persistence()
 
+        # boder reference pixels
+        nborder = parameters.nborder
+
         # simulate a blank image
-        counts, simcatobj = rimage.simulate_counts(
-            image_mod.meta, [], rng=rng, usecrds=False, darkrate=refdata['dark'],
-            stpsf=False, flat=refdata['flat'], psf_keywords=dict())
+        if caldir is None:
+            counts, simcatobj = rimage.simulate_counts(
+                image_mod.meta, [], rng=rng, usecrds=False, darkrate=refdata['dark'],
+                stpsf=False, flat=refdata['flat'], psf_keywords=dict())
+        else:
+            # get dark current in DN/p/s
+            with asdf.open(caldir['dark']) as f:
+                this_dark = f['roman']['dark_slope'][nborder:-nborder,nborder:-nborder]
+            # convert to e/p/s
+            with asdf.open(caldir['gain']) as f:
+                this_dark = this_dark * f['roman']['data'][nborder:-nborder,nborder:-nborder]
+            # de-convolve the IPC kernel
+            with asdf.open(caldir['ipc4d']) as f:
+                this_dark = ipc_rev(this_dark, f['roman']['data'])
+            # now run with this version of the dark rate
+            counts, simcatobj = rimage.simulate_counts(
+                image_mod.meta, [], rng=rng, usecrds=False, darkrate=this_dark,
+                stpsf=False, flat=refdata['flat'], psf_keywords=dict())
         util.update_pointing_and_wcsinfo_metadata(image_mod.meta, counts.wcs)
 
         # convert from e/s --> e using the parameters file and read pattern
@@ -214,15 +298,20 @@ class Image2D:
         counts.array[:,:] += rng.np.poisson(lam=np.clip(t*self.image,0,None)).astype(counts.array.dtype)
 
         # this is where the (simulated) L1 data is created
-        l1, l1dq = rstl1.make_l1(
-            counts, read_pattern, read_noise=refdata['readnoise'],
-            pedestal_extra_noise=parameters.pedestal_extra_noise,
-            rng=rng, gain=refdata['gain'],
-            crparam={},
-            inv_linearity=refdata['inverselinearity'],
-            tstart=image_mod.meta.exposure.start_time,
-            persistence=persistence,
-            saturation=refdata['saturation'])
+        if caldir is None:
+            l1, l1dq = rstl1.make_l1(
+                counts, read_pattern, read_noise=refdata['readnoise'],
+                pedestal_extra_noise=parameters.pedestal_extra_noise,
+                rng=rng, gain=refdata['gain'],
+                crparam={},
+                inv_linearity=refdata['inverselinearity'],
+                tstart=image_mod.meta.exposure.start_time,
+                persistence=persistence,
+                saturation=refdata['saturation'])
+        else:
+            # need to run the individual steps ourselves
+            l1, l1dq = make_l1_fullcal(counts, read_pattern, caldir, rng=rng,
+                tstart=image_mod.meta.exposure.start_time, persistence=persistence)
 
         # convert to asdf
         im, extras = rstl1.make_asdf(l1, dq=l1dq, metadata=image_mod.meta, persistence=persistence)
@@ -429,6 +518,8 @@ if __name__ == "__main__":
     'READS': a list of length 2*Ngrp: 0th group is [READS[0]:READS[1]], then [READS[2]:READS[3]], etc.
 
     Optional:
+    'CALDIR': Python dictionary with the calibration reference files. This can contain:
+        LINEARITY
     'FITSOUT': also write a FITS output (default: False; mostly useful for visualization in ds9)
     'SEED': RNG seed
     """
@@ -437,8 +528,16 @@ if __name__ == "__main__":
     with open(sys.argv[1]) as f:
         config = yaml.safe_load(f)
 
+    # calibration files
+    if 'CALDIR' in config:
+        caldir = config['CALDIR']
+    else:
+        caldir = None
+
     print('Reading from <--', config['IN'])
     print('Writing to -->', config['OUT'])
+    print('Using calibration data:')
+    print(caldir)
     use_read_pattern = []
     ng = len(config['READS'])//2
     for j in range(ng):
@@ -451,7 +550,7 @@ if __name__ == "__main__":
         seed=int(config['SEED'])
 
     x = Image2D('anlsim', fname=config['IN'])
-    x.simulate(use_read_pattern)
+    x.simulate(use_read_pattern, caldir)
     x.L1_write_to(config['OUT'])
 
     # header information for the WCS
