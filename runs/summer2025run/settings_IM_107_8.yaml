@@ -1,0 +1,4 @@
+---
+# build darks for this read pattern
+READS: [0, 1, 1, 2, 2, 4, 4, 10, 10, 26, 26, 32, 32, 34, 34, 35]
+...
