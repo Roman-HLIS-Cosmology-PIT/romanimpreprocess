@@ -116,6 +116,15 @@ def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, ts
 
     print('-->', resetnoise[:4,:4], tij)
 
+    # subtract the apporopriate amount of electrons so that we will be at the
+    # zero level (on average) after some dark current
+    if 'biascorr' in caldir:
+        with asdf.open(caldir['biascorr']) as f:
+            tbias = float(f['roman']['t0'])
+        with asdf.open(caldir['gain']) as g:
+            with asdf.open(caldir['dark']) as f:
+                resetnoise -= tbias*f['roman']['dark_slope'][nb:-nb,nb:-nb]/g['roman']['data'][nb:-nb,nb:-nb]
+
     # this model includes linearity *and* IPC.
     # default application is electrons_in=False, electrons_out=False
     # (the .apply method is called in apportion_counts_to_resultants with
@@ -124,7 +133,8 @@ def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, ts
     e2dn_model = IL(
         caldir['linearitylegendre'],
         caldir['gain'],
-        caldir['ipc4d']
+        caldir['ipc4d'],
+        start_e = resetnoise
     )
     # set the size of the data quality array
     print(read_pattern)
@@ -140,10 +150,87 @@ def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, ts
     with asdf.open(caldir['read']) as f:
         resultants = rstl1.add_read_noise_to_resultants(
             resultants, tij, rng=rng, seed=None,
-            read_noise=f['roman']['data'],
+            read_noise=f['roman']['data'][nb:-nb,nb:-nb],
             pedestal_extra_noise=None)
 
-    return resultants, dq
+    if 'biascorr' in caldir:
+        with asdf.open(caldir['biascorr']) as f:
+            resultants += f['roman']['data']
+
+    resultants[:,:,:] = np.round(resultants)
+
+    return resultants*u.DN, dq
+
+def noise_1f_frame(rng):
+    """Generates a 4096x128 block of 1/f noise."""
+
+    len = 8192*128
+
+    this_array = np.zeros(2*len)
+    galsim.GaussianDeviate(rng).generate(this_array)
+
+    # get frequencies and amplitude ~ sqrt{power}
+    freq = np.linspace(0,1-1./len,len)
+    freq[len//2:] -= 1.
+    amp = (1.e-99+np.abs(freq*len))**(-.5)
+    amp[0] = 0.
+
+    ftsignal = np.zeros((len,),dtype=np.complex128)
+    ftsignal[:] = this_array[:len]
+    ftsignal[:] += 1j*this_array[len:]
+    ftsignal *= amp
+    block = np.fft.fft(ftsignal).real[:len//2]/np.sqrt(2.)
+    block -= np.mean(block)
+    print('generated noise, std -->', np.std(block))
+
+    return(block.reshape((4096,128)).astype(np.float32))
+
+def fill_in_refdata_and_1f(im, caldir, rng, tij, fill_in_banding=True):
+    """Script to fill in the reference pixel data in an image.
+
+    im = the image data cube
+    caldir = the calibration dictionary
+    rng = random number generator
+    tij = which reads to use
+    nborder = number of reference pixels around the border
+    fill_in_banding = also add 1/f noise?
+    """
+
+    (ngrp,ny,nx) = np.shape(im) # get shape
+    nborder = parameters.nborder
+
+    # the extra layer in noise is for the reset noise, which gets added to everything
+    noise = np.zeros((ngrp+1,ny,nx), dtype=np.float32)
+    galsim.GaussianDeviate(rng).generate(noise)
+    with asdf.open(caldir['read']) as f:
+        noise[:-1,:,:] *= f['roman']['data'][None,:,:]
+        noise[-1,:,:] *= f['roman']['resetnoise']
+    for j in range(len(tij)):
+        noise[j,:,:] /= len(tij[j])**0.5
+    noise[:-1,:,:] += noise[-1,:,:][None,:,:] # adds the reset noise to the reference pixels
+
+    with asdf.open(caldir['dark']) as f:
+        noise[:-1,:,:] += np.copy(f['roman']['data'])
+
+    # what we have above is a dark image, but we want to fill in the
+    # active pixels with the data from im
+    noise[:-1,nborder:ny-nborder,nborder:nx-nborder] = im[:,nborder:ny-nborder,nborder:nx-nborder].astype(noise.dtype)
+
+    # generate correlated noise
+    if fill_in_banding:
+        with asdf.open(caldir['read']) as f:
+            u_pink = float(f['roman']['anc']['U_PINK'])
+            c_pink = float(f['roman']['anc']['C_PINK'])
+        print('adding correlated noise', u_pink, c_pink)
+        for j in range(len(tij)):
+            common_noise = noise_1f_frame(rng) * c_pink
+            for ch in range(32):
+                pinknoise = noise_1f_frame(rng) * u_pink + common_noise
+                if ch%2==1: pinknoise = pinknoise[:,::-1]
+                noise[j,:,128*ch:128*(ch+1)] += (pinknoise/len(tij[j])**0.5).astype(noise.dtype)
+
+    # write back to the original
+    im[:,:,:] = np.clip(np.round(noise[:-1,:,:]),0,2**16-1).astype(im.dtype)
 
 class Image2D:
 
@@ -315,6 +402,10 @@ class Image2D:
 
         # convert to asdf
         im, extras = rstl1.make_asdf(l1, dq=l1dq, metadata=image_mod.meta, persistence=persistence)
+
+        # fill in the reference pixels
+        if caldir is not None:
+            fill_in_refdata_and_1f(im['data'], caldir, rng, rstl1.read_pattern_to_tij(read_pattern))
 
         # get extras
         if reffiles:
@@ -506,27 +597,8 @@ def simpletest():
     print(f['roman']['meta']['wcs']((0,0,4087,4087),(0,4087,0,4087)))
     fits.PrimaryHDU(f['roman']['data']).writeto('L2.fits', overwrite=True)
 
-if __name__ == "__main__":
-    """Stand-alone function to convert from OpenUniverse to L1. Call it with:
-
-    python sim_to_isim <config file>
-
-    The config file is in YAML format and has the fields:
-    Required:
-    'IN': input file name (FITS)
-    'OUT': output file name (must end in '.asdf')
-    'READS': a list of length 2*Ngrp: 0th group is [READS[0]:READS[1]], then [READS[2]:READS[3]], etc.
-
-    Optional:
-    'CALDIR': Python dictionary with the calibration reference files. This can contain:
-        LINEARITY
-    'FITSOUT': also write a FITS output (default: False; mostly useful for visualization in ds9)
-    'SEED': RNG seed
-    """
-
-    # read settings
-    with open(sys.argv[1]) as f:
-        config = yaml.safe_load(f)
+def run_config(config):
+    """This allows the L1 image construction to be called as a Python function instead of a stand-alone code."""
 
     # calibration files
     if 'CALDIR' in config:
@@ -564,3 +636,27 @@ if __name__ == "__main__":
                 fits.PrimaryHDU(f['roman']['data']).writeto(config['OUT'][:-5] + '_asdf_to.fits', overwrite=True)
 
     # simpletest()
+
+if __name__ == "__main__":
+    """Stand-alone function to convert from OpenUniverse to L1. Call it with:
+
+    python sim_to_isim <config file>
+
+    The config file is in YAML format and has the fields:
+    Required:
+    'IN': input file name (FITS)
+    'OUT': output file name (must end in '.asdf')
+    'READS': a list of length 2*Ngrp: 0th group is [READS[0]:READS[1]], then [READS[2]:READS[3]], etc.
+
+    Optional:
+    'CALDIR': Python dictionary with the calibration reference files. This can contain:
+        LINEARITY
+    'FITSOUT': also write a FITS output (default: False; mostly useful for visualization in ds9)
+    'SEED': RNG seed
+    """
+
+    # read settings
+    with open(sys.argv[1]) as f:
+        config = yaml.safe_load(f)
+
+    run_config(config)

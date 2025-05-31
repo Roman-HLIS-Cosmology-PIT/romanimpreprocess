@@ -3,7 +3,10 @@ HLWAS Image Preprocessing Tools
 
 This package handles basic pre-processing of Roman data prior to feeding it to PyIMCOM. The ultimate aim will be for it to handle both simulations and real Level 1/2 data.
 
-**This package is under construction. It isn't yet a fully functional tool, expect to see many more commits of new files over the coming weeks.**
+Warning
+*************
+
+**This is under construction! I'm still doing initial testing, so don't grab this version yet.**
 
 Dependencies
 ******************************
@@ -17,6 +20,8 @@ You will need to install:
 * `romancal <https://roman-pipeline.readthedocs.io/en/latest/>`_: The Roman pipeline to go from Level 1 (uncalibrated, 3D) to Level 2 (calibrated, 2D) data. *Note*: this is not used for scripts in ``romanimpreprocess.from_sim``.
 
 The ``romanimpreprocess`` workflows do not explicitly call the Calibration Reference Data System (CRDS), although both ``romanisim`` and ``romancal`` have the ability to do so. Rather, we are specifying calibration reference files in the YAML configurations.
+
+If you want to *generate* your own calibration files from flats and darks (as opposed to using externally provided ones) then you will want to download `solid-waffle <https://github.com/hirata10/solid-waffle>`_.
 
 Converting an OpenUniverse simulation to L1 format
 *****************************************************
@@ -43,6 +48,19 @@ Here:
 * ``SEED`` is the random number generator seed (if this is missing then a default is used, but this is definitely not recommended!).
 
 This will generate both the output (simulated L1) file, and the truth WCS file, in this case ``sim1_asdf_wcshead.txt`` (which exists in the simulation but wouldn't be part of the real data).
+
+It is also possible to include a dictionary of calibration reference files::
+
+  # reference files -- see sample_Step0.yaml
+  CALDIR:
+    linearitylegendre: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_linearitylegendre_DUMMY20250521_SCA10.asdf'
+    gain: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_gain_DUMMY20250521_SCA10.asdf'
+    dark: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_dark_DUMMY20250521_SCA10.asdf'
+    read: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_read_DUMMY20250521_SCA10.asdf'
+    ipc4d: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_ipc4d_DUMMY20250521_SCA10.asdf'
+    biascorr: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_biascorr_DUMMY20250521_SCA10.asdf'
+
+(Note that some of these have additional data: see `the from_sim Readme <from_sim/README.rst>`_ for a detailed list of requirements.)
 
 General notes
 ======================

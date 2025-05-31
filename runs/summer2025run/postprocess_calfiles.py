@@ -1,5 +1,6 @@
 import sys
 import numpy as np
+from astropy.io import fits
 import asdf
 from datetime import datetime, timezone
 import json
@@ -99,6 +100,10 @@ with open('linearity_pars_{:02d}.json'.format(sca)) as f:
 tframe = 3.04
 if 'TFRAME' in lpars:
     tframe = float(lpars['TFRAME'])
+bframe = 1
+if 'BIAS' in lpars:
+    if 'SLICE' in lpars['BIAS']:
+        bframe = int(lpars['BIAS']['SLICE'])
 
 # get read pattern
 with open('settings_'+readpatternname+'.yaml') as f:
@@ -107,19 +112,21 @@ with open('settings_'+readpatternname+'.yaml') as f:
 
 import loc_ipc_linearity as ipc_linearity
 nb = 4
-with asdf.open(infile.replace('_linearitylegendre_', '_dark_') as fd:
+with asdf.open(infile.replace('_linearitylegendre_', '_dark_')) as fd:
     # get the predicted dark
     dark = fd['roman']['dark_slope'][nb:-nb,nb:-nb]*tframe # reference pixels trimmed, converted to DN/frame
     (ny,nx) = np.shape(dark)
-    Sdark_predicted = np.zeros_like(ngrp, ny, nx)
+    Sdark_predicted = np.zeros((ngrp, ny, nx), dtype=np.float32)
+    xref = (int(readpattern[2*bframe])+int(readpattern[2*bframe+1])-1)/2.
+    print('-----', xref)
     for j in range(ngrp):
         fr1 = int(readpattern[2*j])
         fr2 = int(readpattern[2*j+1])
         print('::', j, fr1, fr2)
         for x in range(fr1,fr2):
-            signal,_ = ipc_linearity.linearity(dark*x, infile, origin=(nb,nb))
+            signal,_ = ipc_linearity.invlinearity(dark*(x-xref), infile, origin=(nb,nb))
             Sdark_predicted[j,:,:] += signal
-        Sdark_predicted /= float(fr2-fr1)
+        Sdark_predicted[j,:,:] /= float(fr2-fr1)
     del dark
 
     # now get the true dark
@@ -129,6 +136,32 @@ with asdf.open(infile.replace('_linearitylegendre_', '_dark_') as fd:
     print(fd['roman']['data'][:,nb:-nb,nb:-nb][:,:4,:4])
     print('-->')
     print(Sdark_predicted[:,:4,:4])
-del Sdark_predicted
 
 # now save this
+outfile_biascorr = infile.replace('_linearitylegendre_', '_biascorr_')
+tree = {'roman': {
+    'meta': {
+        'author': 'postprocess_calfiles.py',
+        'description': 'postprocess_calfiles.py',
+        'instrument': {
+            'detector': 'WFI{:02d}'.format(sca),
+            'name': 'WFI'
+        },
+        'origin': 'PIT - romanimpreprocess',
+        'date': datetime.now(timezone.utc).isoformat(),
+        'pedigree': 'DUMMY',
+        'reftype': 'BIASCORR',
+        'telescope': 'ROMAN',
+        'useafter': '!time/time-1.2.0 2020-01-01T00:00:00.000'
+    },
+    'data': bias_corr.astype(np.float32),
+    't0': tframe*xref,
+    't0_comment': 'number of seconds after reset used to define Sref, corresponding to 0 DN_lin'
+}
+}
+asdf.AsdfFile(tree).write_to(outfile_biascorr)
+
+B = np.zeros((2*ngrp,4088,4088), dtype=np.float32)
+B[:ngrp,:,:] = bias_corr
+B[ngrp:,:,:] = Sdark_predicted
+fits.PrimaryHDU(B).writeto(outfile_biascorr[:-5]+'_asdf_to.fits', overwrite=True)

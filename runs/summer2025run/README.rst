@@ -6,7 +6,7 @@ Overview and Purpose
 
 This is a set of simple scripts to generate reference files from darks and flats using ``solid-waffle``. It is being used for the Summer 2025 image simulation run. Most of this material we expect to be useful later, including for in-flight calibrations, but the file formats will be different (this run used Focal Plane Test data). Therefore we intend for this set of scripts to remain as a record of the Summer 2025 run after it is complete, and for later runs to be in their own subdirectories of ``romanimpreprocess.runs``.
 
-Note that only some calibration information can be extracted from darks and flats: this includes dark current, bias, noise, saturation, linearity, gain, inter-pixel capacitance (IPC), and the high spatial frequency flat ("P-flat"). Some other important calibrations (e.g., distortion, bandpass, low spatial frequency flat, point spread function, absolute flux) are only possible with other data sources. For the Summer 2025 runs, these are pulled from simulations or other data sources.
+Note that only some calibration information can be extracted from darks and flats: this includes dark current, bias, noise, saturation, linearity, gain, inter-pixel capacitance (IPC), and the high spatial frequency flat ("P-flat"). Some other important calibrations (e.g., distortion, bandpass, low spatial frequency flat, point spread function, absolute flux) are only possible with other data sources. For the Summer 2025 runs, these are pulled from simulations or other data sources. But in any case, it is probably going to be helpful for the future to be able to convert solid-waffle outputs into a format that is interoperable with romanisim and (at least partially) with the calibration reference data formats used by the SOC.
 
 Usage
 ===============================
@@ -61,12 +61,14 @@ The output file types and contents of the ``roman`` branch are as follows (diffe
     * ``data`` (pixel level flat field, 4096 x 4096, median rescaled to 1)
     * ``dq`` (4096 x 4096, uint32 flags)
 * ``read`` **The resetnoise array is also included so that we can implement a random reset value in the simulation.**
-    * ``anc`` (dictionary of correlated noise parameters)
+    * ``anc`` (dictionary of correlated noise parameters: at least the parameters ``U_PINK`` and ``C_PINK`` for uncorrelated and correlated 1/f noise amplitudes)
     * ``data`` (1 sigma read noise per pixel, 4096 x 4096, DN)
     * ``resetnoise`` (1 sigma reset noise per pixel, 4096 x 4096, DN)
 * ``saturation``
     * ``data`` (saturation level on raw data, 4096 x 4096, DN)
     * ``dq`` (4096 x 4096, uint32 flags)
+* ``biascorr`` **This is a correction that needs to be applied in the simulation to have the correct mean, beyond what we get by adding the dark current and non-linearity curve. Without this, a pixel with negligible dark current would have the same signal at all time, but there is an additional electronic bias especially in the read-reset frame. This may not matter very much since we exclude that frame from the ramp fitting, but we want to get as much right as possible.**
+    * ``data`` (difference of dark data minus what we get from running dark_slope through the inverse linearity curve, ngroup x 4088 x 4088 DN)
 
 Detailed steps
 ===============================
