@@ -57,6 +57,8 @@ The output file types and contents of the ``roman`` branch are as follows (diffe
     * ``Sref`` (reference signal level that corresponds to 0 DN_lin, 4096 x 4096)
     * ``dark`` (dark signal subtracted from flat, 4096 x 4096, DN_lin/s)
     * ``pflat`` (pixel-level flat field, nrampgroups x 4096 x 4096, DN_lin/s)
+* ``mask`` (a permanent bitmask)
+    * ``dq`` (4096 x 4096, uint32 flags)
 * ``pflat`` **The pixel-level flat.** (This is read separately in a few places so we copied it out of linearitylegendre.)
     * ``data`` (pixel level flat field, 4096 x 4096, median rescaled to 1)
     * ``dq`` (4096 x 4096, uint32 flags)
