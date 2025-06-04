@@ -1,10 +1,11 @@
 import numpy as np
 import sys
 import asdf
+from roman_datamodels.dqflags import pixel
 
 """IPC utilities"""
 
-def ipc_fwd(image, kernel):
+def ipc_fwd(image, kernel, gain=None):
     """Carries out an IPC operation on the image.
 
     image should be a 2D numpy array of size (ny,nx)
@@ -12,39 +13,52 @@ def ipc_fwd(image, kernel):
 
     This returns a 2D numpy array:
     output[y,x] = sum_{dy,dx} input[y-dy,x-dx] kernel[1+dy,1+dx,y-dy,x-dx]
+
+    Natively works in e, but if gain is provided then works in DN (does g^-1 K g).
     """
 
+    im = image
+    if gain is not None: im = gain*image
+
     # start with the center image
-    output = image*kernel[1,1,:,:]
+    output = im*kernel[1,1,:,:]
 
     # nearest neighbors
     # dy=1, dx=0
-    output[1:,:] += image[:-1,:]*kernel[2,1,:-1,:]
+    output[1:,:] += im[:-1,:]*kernel[2,1,:-1,:]
     # dy=-1, dx=0
-    output[:-1,:] += image[1:,:]*kernel[0,1,1:,:]
+    output[:-1,:] += im[1:,:]*kernel[0,1,1:,:]
     # dy=0, dx=1
-    output[:,1:] += image[:,:-1]*kernel[1,2,:,:-1]
+    output[:,1:] += im[:,:-1]*kernel[1,2,:,:-1]
     # dy=0, dx=-1
-    output[:,:-1] += image[:,1:]*kernel[1,0,:,1:]
+    output[:,:-1] += im[:,1:]*kernel[1,0,:,1:]
 
     # diagonals
     # dy=1, dx=1
-    output[1:,1:] += image[:-1,:-1]*kernel[2,2,:-1,:-1]
+    output[1:,1:] += im[:-1,:-1]*kernel[2,2,:-1,:-1]
     # dy=1, dx=-1
-    output[1:,:-1] += image[:-1,1:]*kernel[2,0,:-1,1:]
+    output[1:,:-1] += im[:-1,1:]*kernel[2,0,:-1,1:]
     # dy=-1, dx=1
-    output[:-1,1:] += image[1:,:-1]*kernel[0,2,1:,:-1]
+    output[:-1,1:] += im[1:,:-1]*kernel[0,2,1:,:-1]
     # dy=-1, dx=-1
-    output[:-1,:-1] += image[1:,1:]*kernel[0,0,1:,1:]
+    output[:-1,:-1] += im[1:,1:]*kernel[0,0,1:,1:]
+
+    if gain is not None: output /= gain
 
     return(output)
 
-def ipc_rev(image, kernel, order=2):
-    """Inverse operation of ipc_fwd to the given order. Grows the footprint of each pixel to (2*order+1,2*order+1)."""
+def ipc_rev(image, kernel, order=2, gain=None):
+    """Inverse operation of ipc_fwd to the given order. Grows the footprint of each pixel to (2*order+1,2*order+1).
 
-    output = np.copy(image)
+    If gain is provided, then does g^-1 K^-1 g image instead of K^-1 image. (Equivalent: operate on DN instead of e.)
+    """
+
+    image2 = image
+    if gain is not None: image2 = gain*image
+    output = np.copy(image2)
     for j in range(order):
-        output = output + image - ipc_fwd(output,kernel)
+        output = output + image2 - ipc_fwd(output,kernel)
+    if gain is not None: output /= gain
     return(output)
 
 """LINEARITY UTILITIES"""
@@ -104,7 +118,55 @@ def linearity(S, linearity_file, origin=(0,0)):
         Smax = F['roman']['Smax'][ymin:ymax,xmin:xmax]
         phi, exflag = _lin(-1+2*(S-Smin)/(Smax-Smin),F['roman']['data'][:,ymin:ymax,xmin:xmax])
         dq = np.copy(F['roman']['dq'][ymin:ymax,xmin:xmax])
-    dq |= np.where(exflag, 2**20, 0).astype(np.uint32) # flag with bad linearity correction
+    dq |= np.where(exflag, pixel.NO_LIN_CORR, 0).astype(np.uint32) # flag with bad linearity correction
+    return phi, dq
+
+def multilin(S, linearity_file, origin=(0,0), do_not_flag_first=True, attempt_corr=None):
+    """Performs a linearity correction, but with multiple groups.
+
+    Inputs:
+    S = input data shape (ngrp,ny,nx)
+    linearity_file = asdf file with linearity data
+    origin = (x,y) of the lower-left corner of S in the convention of the file
+    do_not_flag_first = don't flag the first read if it is out of range (useful for reset-read frames that we won't use anyway)
+    attempt_corr = if provided, an array of the same shape as S that is True if we want to try the correction
+                   and False otherwise (the idea is that we want to be able to *not* flag a pixel that is saturated)
+
+    So for example, if you have a block S that corresponds to region [128:132,256:260] then you
+    would give origin = (256,128)
+
+    Returns:
+    Slin, shape (ngrp,ny,nx), also in DN
+    dq = uint32 flag array (right now 2D)
+    """
+
+    (ngrp,dy,dx) = np.shape(S)
+    ymin = origin[1]
+    ymax = ymin+dy
+    xmin = origin[0]
+    xmax = xmin+dx
+
+    # accept everything if attempt_corr not provided
+    if attempt_corr is None:
+        attempt_corr = np.ones((ngrp,dy,dx),dtype=bool)
+
+    phi = np.zeros(np.shape(S), dtype=np.float32)
+    with asdf.open(linearity_file) as F:
+        Smin = F['roman']['Smin'][ymin:ymax,xmin:xmax]
+        Smax = F['roman']['Smax'][ymin:ymax,xmin:xmax]
+        Sref = F['roman']['Sref'][ymin:ymax,xmin:xmax]
+        dq = np.copy(F['roman']['dq'][ymin:ymax,xmin:xmax])
+        for j in range(ngrp):
+            z = -1+2*(S[j,:,:]-Smin)/(Smax-Smin)
+            if j==0 and do_not_flag_first:
+                z = np.clip(z,-1,1)
+            phi[j,:,:], exflag = _lin(z,F['roman']['data'][:,ymin:ymax,xmin:xmax])
+            phi[j,:,:] = np.where(dq & (pixel.NO_LIN_CORR|pixel.REFERENCE_PIXEL)==0, phi[j,:,:], S[j,:,:]-Sref)
+
+            # flag reads with bad linearity correction
+            if not(j==0 and do_not_flag_first):
+                dq |= np.where(np.logical_and(exflag,attempt_corr[j,:,:]), pixel.NO_LIN_CORR, 0).astype(np.uint32)
+
     return phi, dq
 
 def invlinearity(Slin, linearity_file, origin=(0,0)):
@@ -143,6 +205,30 @@ def invlinearity(Slin, linearity_file, origin=(0,0)):
         S = Smin + (Smax-Smin)/2.*(1+z)
 
     return S, exflag
+
+def correct_cube(data,ipc_file,mylog,gain_file=None):
+    """IPC corrects a full data cube (data) in place.
+
+    It can operate on a data cube in DN if a gain_file is passed.
+    """
+
+    if ipc_file is None:
+        mylog.append('No IPC file specified, skipping ...\n')
+        return
+
+    with asdf.open(ipc_file) as F:
+        kernel = F['roman']['data']
+        mylog.append('IPC kernel center range --> {:f},{:f}\n'.format(np.amin(kernel[1,1,:,:]), np.amax(kernel[1,1,:,:])))
+        (ngrp,ny,nx) = np.shape(data)
+        nb = (8192+(nx-np.shape(kernel)[-1])//2)%16
+        mylog.append(' ..., {:d} groups, excluding {:d} border pixels\n'.format(ngrp,nb))
+        if gain_file is None:
+            g = 1.
+        else:
+            with asdf.open(gain_file) as G:
+                g = np.copy(G['roman']['data'][nb:ny-nb,nb:nx-nb])
+        for i in range(ngrp):
+                data[i,nb:ny-nb,nb:nx-nb] = ipc_rev(data[i,nb:ny-nb,nb:nx-nb]*g, kernel)/g
 
 """IPC + inverse linearity forward modeling tools"""
 
@@ -216,13 +302,13 @@ class IL:
 
         # what to strip off the counts array
         nb = (8192-nyc//2)%16
-        S,_ = invlinearity(counts_conv/g, self.linearity_file, origin=(nb,nb))
+        S,_ = invlinearity(counts_conv/g_in, self.linearity_file, origin=(nb,nb))
 
         if not electrons_out: return S
 
         # below here, we know electrons_out is on.
         with asdf.open(self.linearity_file) as F:
-            return g*(S - F['roman']['Sref'][nb:nb+nyc,nb:nb+nxc])
+            return g_out*(S - F['roman']['Sref'][nb:nb+nyc,nb:nb+nxc])
 
 def test__lin():
     """Simple test function."""

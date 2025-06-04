@@ -10,6 +10,7 @@ CALDIR:
   dark: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_dark_DUMMY20250521_SCA10.asdf'
   read: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_read_DUMMY20250521_SCA10.asdf'
   ipc4d: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_ipc4d_DUMMY20250521_SCA10.asdf'
+  flat: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_pflat_DUMMY20250521_SCA10.asdf'
   biascorr: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_biascorr_DUMMY20250521_SCA10.asdf'
 SEED: 500
 ...

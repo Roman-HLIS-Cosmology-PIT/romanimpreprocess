@@ -114,8 +114,6 @@ def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, ts
 
     tij = rstl1.read_pattern_to_tij(read_pattern)
 
-    print('-->', resetnoise[:4,:4], tij)
-
     # subtract the apporopriate amount of electrons so that we will be at the
     # zero level (on average) after some dark current
     if 'biascorr' in caldir:
@@ -137,15 +135,20 @@ def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, ts
         start_e = resetnoise
     )
     # set the size of the data quality array
-    print(read_pattern)
-    print(len(read_pattern))
     e2dn_model.set_dq(ngroup=len(read_pattern), nborder=4)
+
+    #print(read_pattern)
+    #print(len(read_pattern))
+    #print('-->', counts.array[3890,237], e2dn_model.linearity_file, e2dn_model.gain_file, e2dn_model.ipc_file)
+    #sys.stdout.flush()
 
     # generates resultants in DN
     resultants, dq = rstl1.apportion_counts_to_resultants(
         counts.array, tij, inv_linearity=e2dn_model, crparam={},
         persistence=persistence, tstart=tstart,
         rng=rng, seed=None)
+
+    #print('resultants array', resultants[:,3890,237])
 
     with asdf.open(caldir['read']) as f:
         resultants = rstl1.add_read_noise_to_resultants(
@@ -181,7 +184,7 @@ def noise_1f_frame(rng):
     ftsignal *= amp
     block = np.fft.fft(ftsignal).real[:len//2]/np.sqrt(2.)
     block -= np.mean(block)
-    print('generated noise, std -->', np.std(block))
+    #print('generated noise, std -->', np.std(block))
 
     return(block.reshape((4096,128)).astype(np.float32))
 
@@ -368,21 +371,29 @@ class Image2D:
             # get dark current in DN/p/s
             with asdf.open(caldir['dark']) as f:
                 this_dark = f['roman']['dark_slope'][nborder:-nborder,nborder:-nborder]
+            # get flat field
+            with asdf.open(caldir['flat']) as f:
+                this_flat = f['roman']['data'][nborder:-nborder,nborder:-nborder]
             # convert to e/p/s
             with asdf.open(caldir['gain']) as f:
                 this_dark = this_dark * f['roman']['data'][nborder:-nborder,nborder:-nborder]
+                g = np.copy(f['roman']['data'][nborder:-nborder,nborder:-nborder]) # save gain for later
             # de-convolve the IPC kernel
             with asdf.open(caldir['ipc4d']) as f:
-                this_dark = ipc_rev(this_dark, f['roman']['data'])
+                this_dark = ipc_rev(this_dark, f['roman']['data'])           # dark is in e/s
+                this_flat = ipc_rev(this_flat, f['roman']['data'], gain=g)   # but flat was measured in DN_lin so need gain=g
             # now run with this version of the dark rate
             counts, simcatobj = rimage.simulate_counts(
                 image_mod.meta, [], rng=rng, usecrds=False, darkrate=this_dark,
-                stpsf=False, flat=refdata['flat'], psf_keywords=dict())
+                stpsf=False, flat=this_flat, psf_keywords=dict())
         util.update_pointing_and_wcsinfo_metadata(image_mod.meta, counts.wcs)
 
         # convert from e/s --> e using the parameters file and read pattern
         t = parameters.read_time * (use_read_pattern[-1][-1] - use_read_pattern[0][0])
-        counts.array[:,:] += rng.np.poisson(lam=np.clip(t*self.image,0,None)).astype(counts.array.dtype)
+        counts.array[:,:] += rng.np.poisson(lam=np.clip(t*self.image*this_flat,0,None)).astype(counts.array.dtype)
+
+        print('image=', self.image[3890,237], 'flat=', this_flat[3890,237], 't=', t)
+        sys.stdout.flush()
 
         # this is where the (simulated) L1 data is created
         if caldir is None:
