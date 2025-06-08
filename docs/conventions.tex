@@ -1,0 +1,215 @@
+\documentclass[prd,onecolumn,nofootinbib,nobibnotes]{revtex4}
+\usepackage{graphicx}
+\usepackage{bm}
+\usepackage{natbib}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{color}
+
+\begin{document}
+
+\title{Conventions in romanimpreprocess}
+
+\maketitle
+
+\vskip -0.25in
+\centerline{\slshape Last compiled: \today}
+
+\tableofcontents
+
+\vskip 0.1in
+\centerline{\Large{\textcolor{red}{\bfseries DRAFT FOR COMMENT}}}
+
+\section{Introduction}
+
+This document provides an overview of photometry conventions as appropriate for the {\tt romanimpreprocess} module. Our aim is to ultimately to provide a set of formulas linking simulations, SOC files, and PIT tools as necessary to ensure that we know what conversions to code up.
+
+\section{Photometry conventions}
+
+\subsection{Sky to pixel}
+
+Several units of signal are used in modeling the detector. The illumination from the astronomical scene is described by the {\em spectral radiance} $I_\nu({\boldsymbol\theta})$ [units: W m$^{-2}$ sr$^{-1}$ Hz$^{-1}$] at frequency $\nu$ and coming from position ${\boldsymbol\theta}$. We describe position ${\boldsymbol\theta}$ as a 2D vector on the tangent plane to the sky; it is assumed that the point spread function is small enough to ignore curved-sky effects (although these are still needed in the WCS for a full detector array). Polarization effects are not considered in this document and are not currently treated in the simulation.
+
+If a pixel $i$ (the index $i$ includes both row and column) is at position ${\boldsymbol\theta}_i$ and has a point spread function $G_i$, then the charge accumulation rate $J_i$ (in e s$^{-1}$) at that pixel is
+\begin{equation}
+J_i = \frac{\Omega_i}{h_{\rm P}} \int_0^\infty A_{{\rm eff},i}(\nu) \left[ \int_{{\mathbb R}^2} G_i({\boldsymbol\theta}_i-{\boldsymbol\theta}|\nu) I_\nu({\boldsymbol\theta})\, d^2{\boldsymbol\theta} \right] \frac{d\nu}\nu,
+\label{eq:dot-Q}
+\end{equation}
+where $A_{{\rm eff},i}(\nu)$ is the response-effective area (including all throughput terms); $h_{\rm P} = 6.62607015\times 10^{-34}\,{\rm J\,Hz}{^{-1}}$ is Planck's constant; and $\Omega_i$ is the geometric solid angle (in sr) of that pixel.\footnote{This is the solid angle as computed using the WCS. In this convention, pixel-to-pixel area variations due to small-scale irregularities not captured in the WCS should be included in $\eta_i$, not $\Omega_i$.} The PSF is normalized so that
+\begin{equation}
+\int_{{\mathbb R}^2} G_i({\boldsymbol\theta}_i-{\boldsymbol\theta}|\nu) \, d^2{\boldsymbol\theta} = 1.
+\end{equation}
+The PSF $G_i$ includes optics, jitter, charge diffusion, and the pixel tophat. The function $G_i$ does not include IPC (we will define a different variable for that later). The frequency integral is written over all frequencies, although of course the effective area is intended to be negligible except in the intended frequency range (thus out-of-band leakage would in principle be inserted at this step if relevant).
+
+We want to compare this to the charge accumulation rate in the ideal simulation. If we define an idealized effective area curve $A_{\rm ideal}(\nu)$, then
+\begin{equation}
+J_{{\rm ideal},i} = \frac{\Omega_i}{h_{\rm P}} \int_0^\infty A_{{\rm ideal}}(\nu) \left[ \int_{{\mathbb R}^2} G_i({\boldsymbol\theta}_i-{\boldsymbol\theta}|\nu) I_\nu({\boldsymbol\theta})\, d^2{\boldsymbol\theta} \right] \frac{d\nu}\nu.
+\label{eq:Jref}
+\end{equation}
+We may then define a relative sensitivity
+\begin{equation}
+\eta_i = \frac{J_i}{J_{{\rm ideal},i}} = \frac{
+\int_0^\infty \nu^{-1} A_{{\rm eff},i}(\nu) {\cal X}_{i,\nu} d\nu
+}{
+\int_0^\infty \nu^{-1} A_{{\rm ideal}}(\nu) {\cal X}_{i,\nu} d\nu
+},
+\label{eq:eta-i}
+\end{equation}
+where
+\begin{equation}
+{\cal X}_{i,\nu} =  \int_{{\mathbb R}^2} G_i({\boldsymbol\theta}_i-{\boldsymbol\theta}|\nu) I_\nu({\boldsymbol\theta})\, d^2{\boldsymbol\theta}.
+\end{equation}
+The ratio $\eta_i$ can depend on the SED of the object (actually, via $h_{i,\nu}$, of that pixel in that object!) if the effective area curve differs from the reference in a way that depends on the pixel. This isn't in the OpenUniverse 2024 simulation, but it could be added in a future simulation. For example, we could in the future do a simulation that includes the field-dependence of the bandpass but not the other terms (e.g., P-flat); in that case, $J_{{\rm ideal},i}$ is still defined by Eq.~(\ref{eq:Jref}), but we would have a $J_{{\rm sim},i} = \eta_{{\rm sim},i}J_{{\rm ideal},i}$ and separate $\eta_i = \eta_{{\rm other},i} \eta_{{\rm sim},i}$. Note that if the P-flat is not gray\footnote{This is likely significant in the bluest bands due to variation of the anti-reflection coating; more work will be necessary to determine if we need to consider it for the redder bands used in the HLWAS.}, then this separation isn't so simple and the simulation needs to handle this before we integrate over frequencies and construct a current $J_{{\rm sim},i}$.
+
+This discussion will also be important when going from the pixel back to the sky, since IMCOM expects $J_{{\rm ref},i}$ (or something proportional to it) as input. A corollary is that somewhere in the data reduction we need to apply $\eta_i$, and that means that we need to provide a reference SED for coaddition (this also means that any deviations from the reference SED --- whether they appear via $\eta_i$ or via the PSF --- fall under the heading of ``chromatic effects'').
+
+\subsection{Pixel to data}
+
+There is charge that accumulates in each pixel at some average rate, $\langle \dot Q_i\rangle = J_i$ ($Q_i$ has units of elementary charges). The read-out data in pixel $i$ is $S_i$ (units: DN), where
+\begin{equation}
+S_i  = {\rm round} \Biggl[ \Phi_i^{-1} \Biggl( \frac1{g_i} \sum_j K_{ij}Q_j \Biggr) + {\rm read~noise} \Biggr],
+\label{eq:Si}
+\end{equation}
+where $K_{ij}$ is the dimensionless IPC kernel coupling charge in pixel $j$ to voltage in pixel $i$; $g_i$ is the gain of pixel $i$ (units: e/DN); and $\Phi^{-1}_i$ is the inverse-linearity function of pixel $i$ (i.e., inverse of the linearity function $\Phi_i$). Here ``round'' refers to rounding to the nearest integer.\footnote{One could define this with a floor function instead; the difference is an offset of 0.5 DN in $\Phi_i$.}
+
+There is a choice made here that IPC acts before gain: this is in part a matter of convenience since the two are part of an overall matrix ${\bf g}^{-1}{\bf K}$ (where ${\bf g}$ is a diagonal matrix with entries $g_{ij}=g_i\delta_{ij}$). It is this overall matrix that is meaningful and one simply chooses a separation by requiring the normalization of each row of ${\bf K}$, $\sum_i K_{ij}=1$. The part of Eq.~(\ref{eq:Si}) that {\em is} physically meaningful is that the non-linearity acts last: if this is not entirely the case, then we would say there is {\em nonlinear inter-pixel capacitance} (NL-IPC). Currently NL-IPC is not implemented. (We know that the BFE is more significant, so I will prioritize that in a future iteration.)
+
+Even after enforcing $\sum_i K_{ij}=1$, the specification in Eq.~(\ref{eq:Si}) is subject to two degeneracies:
+\begin{enumerate}
+\item The scaling degeneracy: one can replace
+\begin{equation}
+g^{\rm new}_i = c_ig_i ~~~{\rm and}~~~ \Phi^{\rm new}_i(S) = c_i\Phi_i(S).
+\end{equation}
+\item The zero-point degeneracy: in the Roman detector architecture, when there is ``zero charge in well'' there are still charges on both sides of the diode, so $Q_i=0$ is a choice of reference rather than a charge packet being truly empty (as you might have in a CCD). So one could make the replacement
+\begin{equation}
+\Phi^{\rm new}_i(S) = \Phi_i(S) + \frac1{g_i} \sum_j K_{ij} b_j ~~~{\rm and}~~~ Q^{\rm new}_j = Q_j+b_j.
+\end{equation}
+\end{enumerate}
+We fix these degeneracies in the standard way by requiring
+\begin{equation}
+\left. \frac{d\Phi_i(S)}{dS} \right|_{S=S_{{\rm ref},i}} = 1
+~~~{\rm and}~~~
+\Phi_i(S_{{\rm ref},i}) = 0
+\label{eq:Sref}
+\end{equation}
+at some conveniently chosen reference signal level $S_{{\rm ref},i}$. Usually you would choose this to be close to the median reset level; {\tt romanimpreprocess} takes it to be a set amount of time $t_e$ following reset in the dark, which is essentially the same for normal (i.e., not hot) pixels.
+
+The linearity coefficients are described in terms of Legendre polynomials over some domain $S_{{\rm min},i}\le S\le S_{{\rm max},i}$:
+\begin{equation}
+\Phi_i(S) = \sum_{\ell = 0}^{p_{\rm order}} C_{\ell i} {\rm P}_\ell(z),
+~~~z = -1 + 2 \frac{S-S_{{\rm min},i}}{S_{{\rm max},i} - S_{{\rm min},i} },
+\label{eq:Legendre}
+\end{equation}
+where ${\rm P}_\ell$ is the $\ell$th Legendre polynomial.
+
+The quantity $\Phi_i(S)$ has units of ``linearized digital numbers'': we may write DN$_{\rm raw}$ (unit of $S$) or DN$_{\rm lin}$ for emphasis.
+
+\section{Flats, darks, and normalization}
+
+The flats and darks interact with the above ideas in a non-trivial way that require some care propagating through the simulation and reduction.
+
+\subsection{General definitions}
+
+If we linearize a flat or dark, the ramp slope is
+\begin{equation}
+\frac{d\Phi_i(S_i)}{dt} = D_i + {\cal N} \Lambda_i F_i,
+\end{equation}
+where $D_i$ is the dark rate (unit: DN$_{\rm lin}\,{\rm s}^{-1}$); $F_i$ is the flat field (unitless, should be $\approx 1$ for normal pixels but we leave the exact normalization arbitrary here); ${\cal N}$ is an arbitrary normalization of the flat (unit: DN$_{\rm lin}\,{\rm s}^{-1}$); and $\Lambda_i$ is the flat illumination pattern (dimensionless, exactly 1 for a flat field source covering the full aperture of the telescope providing exactly uniform radiance). The dark is related to the dark current in each pixel via
+\begin{equation}
+D_i = \frac1{g_i} \sum_j K_{ij} \dot Q^{\rm dark}_j ~~~\leftrightarrow~~~
+\dot Q^{\rm dark}_j = \sum_i [{\bf K}^{-1}]_{ji} g_iD_i.
+\end{equation}
+Similarly, the flat is
+\begin{equation}
+{\cal N} \Lambda_i F_i = \frac1{h_{\rm P} g_i} \sum_j K_{ij} \Omega_j \int_0^\infty \Lambda_j I^{\rm flat}_\nu A_{{\rm eff},j}(\nu) \frac{d\nu}\nu,
+\end{equation}
+where $I^{\rm flat}_\nu$ is the spectral radiance corresponding to $\Lambda=1$. We may write this using Eq.~(\ref{eq:eta-i}) as
+\begin{equation}
+{\cal N} \Lambda_i F_i = \frac1{h_{\rm P} g_i} \sum_j K_{ij} \Lambda_j \Omega_j \eta_j^{\rm flat} \int_0^\infty I^{\rm flat}_\nu A_{{\rm ideal}}(\nu) \frac{d\nu}\nu,
+\end{equation}
+where $\eta_j^{\rm flat}$ is the relative sensitivity $\eta_j$ for the SED of the flat field source. It follows that we can construct the relative sensitivity for the SED of the flat:
+\begin{equation}
+\eta_j^{\rm flat} = \frac{h_{\rm P}{\cal N}}{\int_0^\infty \nu^{-1} I^{\rm flat}_\nu A_{{\rm ideal}}(\nu) \,d\nu} \frac1{\Lambda_j \Omega_j} \sum_i [{\bf K}^{-1}]_{ji} g_i \Lambda_i F_i.
+\end{equation}
+The pre-factor out front is an overall normalization. Moreover, if $\Lambda$ is smoothly varying, we may neglect the variation of the illumination pattern over the pixels that are IPC-coupled to $j$, i.e., we may approximate that if $[{\bf K}^{-1}]_{ji}\neq 0$ then $\Lambda_i \approx \Lambda_j$. This leads to
+\begin{equation}
+\eta_j^{\rm flat} =  \frac{h_{\rm P}{\cal N}}{\Omega_j\int_0^\infty \nu^{-1} I^{\rm flat}_\nu A_{{\rm ideal}}(\nu) \,d\nu} \sum_i [{\bf K}^{-1}]_{ji} g_i  F_i.
+\end{equation}
+In what follows, it will be helpful to separate out the constant pre-factor as follows:
+\begin{equation}
+\eta_j^{\rm flat} = \frac{{\cal C}\Omega_{\rm ideal}}{g_{\rm ideal} \Omega_j} \sum_i [{\bf K}^{-1}]_{ji} g_i  F_i,
+~~~~{\cal C} = \frac{h_{\rm P}g_{\rm ideal}{\cal N}}{\Omega_{\rm ideal} \int_0^\infty \nu^{-1} I^{\rm flat}_\nu A_{{\rm ideal}}(\nu) \,d\nu} .
+\label{eq:eta-flat}
+\end{equation}
+Here ${\cal C}$ is a global constant (across the whole focal plane) proportional to the normalization of the flat. We introduced an ``ideal gain'' $g_{\rm ideal}$ and an ``ideal solid angle'' $\Omega_{\rm ideal}$ so that ${\cal C}$ is dimensionless and of order unity. These are arbitrary choices in principle and are set in {\tt pars.py}. The $\Omega_{\rm ideal}$ is set equal to the area of a $0.11\times 0.11$ pixel square:
+\begin{equation}
+\Omega_{\rm ideal} = \left( \frac{0.11}{3600}\times\frac{\pi}{180}\right)^2 = 2.8440360952308446\times 10^{-13}\,{\rm sr}.
+\end{equation}
+The ideal gain may be set differently in the future (ultimately we intend for it to be close to the median of the focal plane with flight settings for the electronics). It will be propagated to the output files.
+
+\subsection{P-flats, L-flats, and absolute normalization}
+
+In most applications, one derives a P-flat field $\Lambda_i F_i$ from internal flats. Repeat observations of astronomical sources at many positions on the focal plane are used to derive the parameters of the smooth function $\Lambda_i$. Finally, a calibrator of known flux must be observed to establish the absolute normalization.
+
+If a source of spectral irradiance $f_\nu^{\rm src}$ is present at position ${\boldsymbol\theta}^{\rm src}$, then the ramp slopes in a group of pixels around it satisfy
+\begin{equation}
+\sum_{i\in\rm aper} \frac{1}{\eta_i} \sum_{j} [{\bf K}^{-1}]_{ij} g_j \frac{d\Phi_j(S_j)}{dt} = 
+ \sum_{i\in\rm aper} J_{{\rm ideal},i} + [{\rm background}] =
+ \frac{a}{h_{\rm P}} \int_0^\infty A_{\rm ideal}(\nu) f_\nu^{\rm src}\,\frac{d\nu}\nu + [{\rm background}],
+\end{equation}
+where the aperture correction $a$ is normalized such that it would approach 1 as the aperture size is taken to be large. Now from Eq.~(\ref{eq:eta-flat}), we define the IPC-deconvolved flat:
+\begin{equation}
+\tilde F_j \equiv \frac1{g_j} \sum_i [{\bf K}^{-1}]_{ji} g_i  F_i
+~~~ \Rightarrow ~~~
+\frac{g_i}{\eta_i^{\rm flat}} = \frac{\Omega_i g_{\rm ideal}}{{\cal C} \Omega_{\rm ideal} \tilde F_i}.
+\label{eq:tilde-F}
+\end{equation}
+We may then write
+\begin{equation}
+\sum_{i\in\rm aper} \frac{\Omega_i}{ \Lambda_i \tilde F_i}\frac{d\tilde\Phi_i[{\boldsymbol S}]}{dt}- [{\rm background}] 
+= 
+\frac{{\cal C}\Omega_{\rm ideal}}{\Lambda({\boldsymbol\theta}_{\rm src}) g_{\rm ideal}} \frac{a}{h_{\rm P}} \int_0^\infty A_{\rm ideal}(\nu) f_\nu^{\rm src}\,\frac{d\nu}\nu,
+\label{eq:s-aper}
+\end{equation}
+with
+\begin{equation}
+\tilde\Phi_i[{\boldsymbol S}] \equiv \sum_{j} 
+\frac1{g_i} [{\bf K}^{-1}]_{ij} g_j \Phi_j(S_j) 
+\end{equation}
+being the IPC-deconvolved, linearized signal, and the vector ${\boldsymbol S}$ being used to remind us that this does not depend solely on the pixel $i$.
+Once again we assume the flat illumination pattern $\Lambda$ to be slowly varying across the postage stamp of the source so that there is a single $\Lambda({\boldsymbol\theta}_{\rm src})$. Since it is actually the combination $\Lambda_i F_i$ that is observed (or $\Lambda_i \tilde F_i$ after IPC correction), the left-hand side is observable. (Caveat: the P-flat will need to be color-corrected from the 6 RCS bands to the SED of the source convolved with the bandpass function.)
+
+\subsection{Relation to the simulation}
+
+The simulation needs $\eta_i$ to convert the ``idealized'' current $J_{{\rm ideal},i}$ into ``true'' current $J_i$ in photodiode $i$. This is
+\begin{equation}
+\eta_i = {\cal C} \frac{\Omega_{\rm ideal}}{\Omega_i} \frac{g_i}{g_{\rm ideal}} \tilde F_i.
+\end{equation}
+We still need the constant ${\cal C}$. In flight, we will determine ${\cal C}$ via Eq.~(\ref{eq:s-aper}) (or some equivalent relation) by observing standard stars whose flux has been externally calibrated. Until this is measured, we set $A_{\rm ideal}(\nu)$ to be the best-estimate effective area curve used in the simulation, and set ${\cal C}=1$.
+
+~\\
+\noindent
+{\slshape\bfseries{Note on chromatic effects}}: In reality, $\eta_i$ depends on the source (recall its definition, Eq.~\ref{eq:eta-i}, requires an SED). There is a phased plan for handling this:
+\begin{list}{$\bullet$}{}
+\item For the summer 2025 simulation, we do not include a color-dependent flat, so there is a single $\eta_i$ for all sources.
+\item If a future simulation has a field-dependent effective area curve, then it already has some $\eta_i^{\rm sim}$ baked into it. This will need to be specified so that the simulation package can apply only $\eta_i/\eta_i^{\rm sim}$. The expectation is that we will incorporate the field dependence of the filter bandpass in a future $\eta_i^{\rm sim}$, so that the correction $\eta_i/\eta_i^{\rm sim}$ will be closer to gray.
+\item It may be that at some point all knowledge of the chromatic terms and the flat field moves into the simulation side rather than {\tt romanimpreprocess}, in which case we won't need to apply $\eta_i$ in {\tt romanimpreprocess} at all.
+\end{list}
+
+\subsection{Relation to IMCOM}
+
+The output array from {\tt romanimpreprocess} should be the IMCOM input ${\cal I}_i$, which is
+\begin{equation}
+{\cal I}_i = {\cal C} \frac{ J_{{\rm ideal},i} }{g_{\rm ideal}} = {\cal C} \frac{g_i}{g_{\rm ideal}\eta_i} \frac{d\tilde\Phi_i[{\boldsymbol S}]}{dt}
+= \frac{\Omega_i}{\Omega_{\rm ideal} \tilde F_i} \frac{d\tilde\Phi_i[{\boldsymbol S}]}{dt}.
+\end{equation}
+with units of DN$_{\rm lin}$ s$^{-1}$. Then the coadded image output $H$ has units of (flattened) DN$_{\rm lin}$ s$^{-1}$ referenced to a pixel of size $\Omega_{\rm ideal}$, and is still multiplied by the pre-factor ${\cal C}$. This means that the surface brightness corresponding to an output of ``1'' in the IMCOM coadds will be
+\begin{equation}
+I_\nu(H=1) =  \frac{ h_{\rm P} g_{\rm ideal} }{ {\cal C} \Omega_{\rm ideal} \int_0^\infty \nu^{-1} A_{\rm ideal}(\nu)\, d\nu} \times 1\,{\rm DN\,s}^{-1}.
+\label{eq:ZPI}
+\end{equation}
+(this has the right units if one notes $h_{\rm P}/\Omega_{\rm ideal} = 0.232981226$ m$^2$ s MJy sr$^{-1}$).
+It is possible to incorporate this into the IMCOM coadds, but given that the absolute flux scale of observatories often continues to get revised as more standards and better reduction techniques become available, we would like to not ``bake in'' an estimate of ${\cal C}$ at the beginning of a large IMCOM run. We therefore propose to distribute IMCOM coadds in flattened instrumental units and update the conversion of Eq.~(\ref{eq:ZPI}) as needed.
+
+\end{document}
+
