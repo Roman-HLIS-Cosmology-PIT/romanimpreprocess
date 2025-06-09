@@ -1,9 +1,8 @@
 ---
 # Input file
-IN: '/fs/scratch/PCON0003/cond0007/anl-run-in-prod/truth/Roman_WAS_truth_F184_14747_10.fits'
-OUT: 'sim1.asdf'
-READS: [0, 1, 1, 2, 2, 4, 4, 10, 10, 26, 26, 32, 32, 34, 34, 35]
-FITSOUT: True
+IN: 'sim1.asdf'
+OUT: 'sim2P.asdf'
+FITSWCS: 'sim1_asdf_wcshead.txt'
 CALDIR:
   linearitylegendre: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_linearitylegendre_DUMMY20250521_SCA10.asdf'
   gain: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_gain_DUMMY20250521_SCA10.asdf'
@@ -12,6 +11,11 @@ CALDIR:
   ipc4d: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_ipc4d_DUMMY20250521_SCA10.asdf'
   flat: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_pflat_DUMMY20250521_SCA10.asdf'
   biascorr: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_biascorr_DUMMY20250521_SCA10.asdf'
-CNORM: 1.0
-SEED: 500
+  mask: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_mask_DUMMY20250521_SCA10.asdf'
+  saturation: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_saturation_DUMMY20250521_SCA10.asdf'
+JUMP_DETECT_PARS:
+  SthreshA: 5.5
+  SthreshB: 4.5
+  IthreshA: 0.6
+  IthreshB: 600.
 ...

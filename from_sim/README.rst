@@ -49,6 +49,8 @@ The configuration is a Python dictionary (normally read from a YAML file).
 
 * ``CALDIR``: This is a dictionary of calibration files. Defaults are used if ``CALDIR`` is not provided. The files are unique to that SCA (so you will need 18 sets of files to describe the full WFI focal plane).
 
+* ``CNORM``: A normalization constant that scales the overall throughput of the simulation (default: 1.0, since this is relative to the "ideal" effective area curve in the OpenUniverse simulation).
+
 Calibration file requirements
 ====================================
 

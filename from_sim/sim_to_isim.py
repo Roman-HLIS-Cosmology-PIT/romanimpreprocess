@@ -22,6 +22,8 @@ from romanisim import parameters, util, wcs, image as rimage, ris_make_utils as 
 
 # local imports
 from ..utils.ipc_linearity import IL, ipc_rev
+from ..utils.coordutils import pixelarea
+from .. import pars
 
 def hdu_sip_hflip(data,header):
     """Horizontal flip of SCA and WCS. Assumes SIP convention."""
@@ -390,10 +392,18 @@ class Image2D:
 
         # convert from e/s --> e using the parameters file and read pattern
         t = parameters.read_time * (use_read_pattern[-1][-1] - use_read_pattern[0][0])
-        counts.array[:,:] += rng.np.poisson(lam=np.clip(t*self.image*this_flat,0,None)).astype(counts.array.dtype)
 
-        print('image=', self.image[3890,237], 'flat=', this_flat[3890,237], 't=', t)
-        sys.stdout.flush()
+        # the input simulations include the pixel area in their estimated e/s
+        # but the flat field will ultimately include the pixel area as well!
+        # therefore we need to re-scale the flat to the ideal pixel area (0.11 arcsec)^2
+        flat_witharea = this_flat / ( pixelarea(self.galsimwcs,N=4088)/pars.Omega_ideal )
+        if 'CNORM' in config:
+            C = float(config['CNORM'])
+        else:
+            C = 1.
+        print(pixelarea(self.galsimwcs,N=4088)[::1024,::1024])
+        print(flat_witharea[::1024,::1024]); sys.stdout.flush()
+        counts.array[:,:] += rng.np.poisson(lam=np.clip(C*t*g/pars.g_ideal*self.image*flat_witharea,0,None)).astype(counts.array.dtype)
 
         # this is where the (simulated) L1 data is created
         if caldir is None:

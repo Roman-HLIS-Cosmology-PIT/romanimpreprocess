@@ -6,24 +6,32 @@ from datetime import datetime, timezone
 import json
 import yaml
 
+from loc_pars import g_ideal # get the ideal gain
+
 """This script makes a p-flat and saturation file from a linearitylegendre file."""
 
 infile = sys.argv[1]
 sca = int(sys.argv[2])
 readpatternname = sys.argv[3]
 
+gain = infile.replace('_linearitylegendre_', '_gain_')
 outfile_flat = infile.replace('_linearitylegendre_', '_pflat_')
 
 with asdf.open(infile) as f:
-    pflat = f['roman']['pflat'][0,:,:]
+    with asdf.open(gain) as g:
+        pflat = f['roman']['pflat'][0,:,:]
+        pflat /= np.median(pflat) # normalize to 1
 
-pflat /= np.median(pflat) # normalize to 1
+        """This scaling will be replaced in the future
+        when we have a measurement of the L-flat.
+        """
+        pflat *= g_ideal/np.median(g['roman']['data'])
 
 # clip and flag outliers -- usually low response
 dq = np.zeros(np.shape(pflat), dtype=np.uint32)
-dq |= np.where(pflat<.25, 1, 0).astype(np.uint32)
-dq |= np.where(pflat>2., 1, 0).astype(np.uint32)
-pflat = np.clip(pflat, .25, 2)
+dq |= np.where(pflat<.01, 1, 0).astype(np.uint32)
+dq |= np.where(pflat>1.99, 1, 0).astype(np.uint32)
+pflat = np.clip(pflat, .01, 1.99)
 
 tree = {'roman': {
     'meta': {
@@ -40,7 +48,7 @@ tree = {'roman': {
         'telescope': 'ROMAN',
         'useafter': '!time/time-1.2.0 2020-01-01T00:00:00.000'
     },
-    'data': pflat,
+    'data': pflat.astype(np.float32),
     'dq': dq
 },
 'notes': {

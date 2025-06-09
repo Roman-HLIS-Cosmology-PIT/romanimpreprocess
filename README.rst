@@ -17,11 +17,17 @@ You will need to install:
 
 * `romanisim <https://github.com/spacetelescope/romanisim>`_: This is a Roman-specific image simulator (in development; testing here is with commit ``e8d2cb5``, as of May 2025 the pypi version didn't have all the functionality we are using). ``romanimpreprocess.from_sim`` uses the ``romanisim`` functions rather than calling the whole script, since we are generating ramps from a 2D image rather than a catalog.
 
-* `romancal <https://roman-pipeline.readthedocs.io/en/latest/>`_: The Roman pipeline to go from Level 1 (uncalibrated, 3D) to Level 2 (calibrated, 2D) data. *Note*: this is not used for scripts in ``romanimpreprocess.from_sim``.
+* `romancal <https://roman-pipeline.readthedocs.io/en/latest/>`_: The Roman pipeline to go from Level 1 (uncalibrated, 3D) to Level 2 (calibrated, 2D) data. *Note*: this is not used for scripts in ``romanimpreprocess.from_sim``. Note that the ``romancal`` installation also installs some other modules that ``romanimpreprocess`` calls directly (specifically: ``stcal`` and ``roman_datamodels``).
 
 The ``romanimpreprocess`` workflows do not explicitly call the Calibration Reference Data System (CRDS), although both ``romanisim`` and ``romancal`` have the ability to do so. Rather, we are specifying calibration reference files in the YAML configurations.
 
 If you want to *generate* your own calibration files from flats and darks (as opposed to using externally provided ones) then you will want to download `solid-waffle <https://github.com/hirata10/solid-waffle>`_.
+
+
+Conventions
+*****************
+
+In a "glue" script such as ``romanimpreprocess``, the linking of the conventions used by different tools can be a bit overwhelming. The current summary of the conventions is `here <docs/conventions.pdf>`_.
 
 Converting an OpenUniverse simulation to L1 format
 *****************************************************
