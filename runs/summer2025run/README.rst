@@ -45,7 +45,7 @@ The output file types and contents of the ``roman`` branch are as follows (diffe
     - ``dq`` (4096 x 4096, uint32 flags)
     - ``dark_slope`` (dark current, 4096 x 4096, DN/s)
     - ``dark_slope_err`` (4096 x 4096, DN/s)
-- ``gain`` (reference pixels undefined but are present in the array)
+- ``gain``
     - ``data`` (4096 x 4096, e/DN_lin)
     - ``dq`` (4096 x 4096, uint32 flags)
 - ``ipc4d`` **Extended to 4D to allow for spatially varying IPC kernel, as seen during testing.**
@@ -59,9 +59,9 @@ The output file types and contents of the ``roman`` branch are as follows (diffe
     - ``Sref`` (reference signal level that corresponds to 0 DN_lin, 4096 x 4096)
     - ``dark`` (dark signal subtracted from flat, 4096 x 4096, DN_lin/s)
     - ``pflat`` (pixel-level flat field, nrampgroups x 4096 x 4096, DN_lin/s)
-- ``mask`` (a permanent bitmask)
+- ``mask``
     - ``dq`` (4096 x 4096, uint32 flags)
-- ``pflat`` **The pixel-level flat.** (This is read separately in a few places so we copied it out of linearitylegendre.)
+- ``pflat`` **This is read separately in a few places so we copied it out of linearitylegendre. This is only the pixel-level flat right now.**
     - ``data`` (pixel level flat field, 4096 x 4096, median rescaled to 1)
     - ``dq`` (4096 x 4096, uint32 flags)
 - ``read`` **The resetnoise array is also included so that we can implement a random reset value in the simulation.**
