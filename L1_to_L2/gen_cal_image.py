@@ -16,7 +16,7 @@ import galsim
 
 # local imports
 from . import oututils
-from ..utils import bitutils, ipc_linearity, fitting, flatutils, coordutils
+from ..utils import bitutils, ipc_linearity, fitting, flatutils, coordutils, maskhandling
 from .. import pars
 
 # stcal imports
@@ -79,7 +79,7 @@ def initializationstep(config, caldir, mylog):
         mylog.append('guide window: x={:d}:{:d}, y={:d}:{:d}\n'.format(xstart, xstop, ystart, ystop))
         # if the metadata contain a real window, mask that row
         if xstart>=0 and ystart>=0 and xstop<=4096 and ystop<=4096:
-            dq[:,:,xstart:xstop] |= pixel.GW_AFFECTED_DATA
+            rdq[:,:,xstart:xstop] |= pixel.GW_AFFECTED_DATA
             # now flag potential IPC
             if xstart>4: xstart -= 1
             if xstop<4092: xstop += 1
@@ -311,7 +311,7 @@ def calibrateimage(config, verbose=True):
         dq=pdq[nb:-nb,nb:-nb], imwcs=repackage_wcs(thewcs), gain=medgain)
 
 
-    oututils.add_in_ref_data(im2, config['IN'], rdq)
+    oututils.add_in_ref_data(im2, config['IN'], rdq, pdq)
 
     # Create metadata for simulation parameter
     romanisimdict2 = {'version': rstversion}
@@ -321,6 +321,16 @@ def calibrateimage(config, verbose=True):
     af2 = asdf.AsdfFile()
     af2.tree = {'roman': im2, 'romanisim': romanisimdict2}
     af2.write_to(open(config['OUT'], 'wb'))
+
+    if 'FITSOUT' in config:
+        if config['FITSOUT']:
+           good = ~ maskhandling.PixelMask1.build(im2['dq']) # this is one choice
+
+           # note we accept saturated pixels in this step
+           fits.HDUList([fits.PrimaryHDU(im2['data']),
+                         fits.ImageHDU(im2['dq']),
+                         fits.ImageHDU(np.where(good, im2['data'], -1000))]
+                        ).writeto(config['OUT'][:-5]+'_asdf_to.fits', overwrite=True)
 
     print(mylog.output)
 

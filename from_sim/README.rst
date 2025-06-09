@@ -137,6 +137,10 @@ CALDIR['biascorr'] (optional)
 
 If provided, this file contains information on how to correct dark current + non-linearity information to get the correct median level. It should contain:
 
+* ``f['roman']['data']``: ngroup x 4088 x 4088 array, float32, DN:
+
+  The difference between the predicted dark signal (from the dark current slope and linearity curve) and the observed darks. This is to be added to the simulation outputs.
+
 * ``f['roman']['t0']``: float, s:
 
   The time from reset to the reference level (i.e., what corresponds to "0 e in the well").

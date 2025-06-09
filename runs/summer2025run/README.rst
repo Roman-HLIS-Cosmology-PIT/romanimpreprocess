@@ -38,39 +38,39 @@ where the ending ensures that it will never be confused with a SOC calibration f
 
 The output file types and contents of the ``roman`` branch are as follows (differences from the SOC format are noted in **bold**):
 
-* ``dark``
-    * ``data`` (averages of darks, ngroup x 4096 x 4096, DN)
-    * ``dq`` (4096 x 4096, uint32 flags)
-    * ``dark_slope`` (dark current, 4096 x 4096, DN/s)
-    * ``dark_slope_err`` (4096 x 4096, DN/s)
-* ``gain`` (reference pixels undefined but are present in the array)
-    * ``data`` (4096 x 4096, e/DN_lin)
-    * ``dq`` (4096 x 4096, uint32 flags)
-* ``ipc4d`` **Extended to 4D to allow for spatially varying IPC kernel, as seen during testing.**
-    * ``data`` (IPC kernel, active pixels only, 3 x 3 x 4088 x 4088, unitless)
-    * ``dq`` (4088 x 4088, uint32 flags)
-* ``linearitylegendre`` **The linearity curve is represented in Legendre polynomial coefficients over the given range. This is stable even if the linearity curve has some wiggles in it. Also we don't use an explicit inverse linearity curve, since we pass a class to romanisim that numerically inverts the linearity curve when needed.**
-    * ``data`` (linearization coefficients (order+1) x 4096 x 4096)
-    * ``dq`` (4096 x 4096, uint32 flags)
-    * ``Smin`` (min signal for polynomial fit, 4096 x 4096, DN)
-    * ``Smax`` (max signal for polynomial fit, 4096 x 4096, DN)
-    * ``Sref`` (reference signal level that corresponds to 0 DN_lin, 4096 x 4096)
-    * ``dark`` (dark signal subtracted from flat, 4096 x 4096, DN_lin/s)
-    * ``pflat`` (pixel-level flat field, nrampgroups x 4096 x 4096, DN_lin/s)
-* ``mask`` (a permanent bitmask)
-    * ``dq`` (4096 x 4096, uint32 flags)
-* ``pflat`` **The pixel-level flat.** (This is read separately in a few places so we copied it out of linearitylegendre.)
-    * ``data`` (pixel level flat field, 4096 x 4096, median rescaled to 1)
-    * ``dq`` (4096 x 4096, uint32 flags)
-* ``read`` **The resetnoise array is also included so that we can implement a random reset value in the simulation.**
-    * ``anc`` (dictionary of correlated noise parameters: at least the parameters ``U_PINK`` and ``C_PINK`` for uncorrelated and correlated 1/f noise amplitudes)
-    * ``data`` (1 sigma read noise per pixel, 4096 x 4096, DN)
-    * ``resetnoise`` (1 sigma reset noise per pixel, 4096 x 4096, DN)
-* ``saturation``
-    * ``data`` (saturation level on raw data, 4096 x 4096, DN)
-    * ``dq`` (4096 x 4096, uint32 flags)
-* ``biascorr`` **This is a correction that needs to be applied in the simulation to have the correct mean, beyond what we get by adding the dark current and non-linearity curve. Without this, a pixel with negligible dark current would have the same signal at all time, but there is an additional electronic bias especially in the read-reset frame. This may not matter very much since we exclude that frame from the ramp fitting, but we want to get as much right as possible.**
-    * ``data`` (difference of dark data minus what we get from running dark_slope through the inverse linearity curve, ngroup x 4088 x 4088 DN)
+- ``biascorr`` **This is a correction that needs to be applied in the simulation to have the correct mean, beyond what we get by adding the dark current and non-linearity curve. Without this, a pixel with negligible dark current would have the same signal at all time, but there is an additional electronic bias especially in the read-reset frame. This may not matter very much since we exclude that frame from the ramp fitting, but we want to get as much right as possible.**
+    - ``data`` (difference of dark data minus what we get from running dark_slope through the inverse linearity curve, ngroup x 4088 x 4088 DN)
+- ``dark``
+    - ``data`` (averages of darks, ngroup x 4096 x 4096, DN)
+    - ``dq`` (4096 x 4096, uint32 flags)
+    - ``dark_slope`` (dark current, 4096 x 4096, DN/s)
+    - ``dark_slope_err`` (4096 x 4096, DN/s)
+- ``gain`` (reference pixels undefined but are present in the array)
+    - ``data`` (4096 x 4096, e/DN_lin)
+    - ``dq`` (4096 x 4096, uint32 flags)
+- ``ipc4d`` **Extended to 4D to allow for spatially varying IPC kernel, as seen during testing.**
+    - ``data`` (IPC kernel, active pixels only, 3 x 3 x 4088 x 4088, unitless)
+    - ``dq`` (4088 x 4088, uint32 flags)
+- ``linearitylegendre`` **The linearity curve is represented in Legendre polynomial coefficients over the given range. This is stable even if the linearity curve has some wiggles in it. Also we don't use an explicit inverse linearity curve, since we pass a class to romanisim that numerically inverts the linearity curve when needed.**
+    - ``data`` (linearization coefficients (order+1) x 4096 x 4096)
+    - ``dq`` (4096 x 4096, uint32 flags)
+    - ``Smin`` (min signal for polynomial fit, 4096 x 4096, DN)
+    - ``Smax`` (max signal for polynomial fit, 4096 x 4096, DN)
+    - ``Sref`` (reference signal level that corresponds to 0 DN_lin, 4096 x 4096)
+    - ``dark`` (dark signal subtracted from flat, 4096 x 4096, DN_lin/s)
+    - ``pflat`` (pixel-level flat field, nrampgroups x 4096 x 4096, DN_lin/s)
+- ``mask`` (a permanent bitmask)
+    - ``dq`` (4096 x 4096, uint32 flags)
+- ``pflat`` **The pixel-level flat.** (This is read separately in a few places so we copied it out of linearitylegendre.)
+    - ``data`` (pixel level flat field, 4096 x 4096, median rescaled to 1)
+    - ``dq`` (4096 x 4096, uint32 flags)
+- ``read`` **The resetnoise array is also included so that we can implement a random reset value in the simulation.**
+    - ``anc`` (dictionary of correlated noise parameters: at least the parameters ``U_PINK`` and ``C_PINK`` for uncorrelated and correlated 1/f noise amplitudes)
+    - ``data`` (1 sigma read noise per pixel, 4096 x 4096, DN)
+    - ``resetnoise`` (1 sigma reset noise per pixel, 4096 x 4096, DN)
+- ``saturation``
+    - ``data`` (saturation level on raw data, 4096 x 4096, DN)
+    - ``dq`` (4096 x 4096, uint32 flags)
 
 Detailed steps
 ===============================

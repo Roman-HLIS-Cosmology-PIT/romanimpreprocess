@@ -13,6 +13,7 @@ import yaml
 from ..from_sim import sim_to_isim
 from ..L1_to_L2 import gen_cal_image
 from .. import pars
+from ..utils import maskhandling
 
 # Get setup
 if len(sys.argv)<=4:
@@ -46,6 +47,7 @@ with fits.open(config1['IN']) as f:
 # get differences and outputs
 diffs = np.memmap(tempdir+'/diffs.mmap', dtype=np.float32, mode='w+', shape=(Nrun,4096,4096))
 images = np.memmap(tempdir+'/images.mmap', dtype=np.float32, mode='w+', shape=(Nrun,4096,4096))
+moments = np.zeros((3,4088,4088), dtype=np.float32)
 
 for j in range(Nrun):
     print('starting sim {:d}'.format(j)); sys.stdout.flush()
@@ -60,9 +62,20 @@ for j in range(Nrun):
 
     with asdf.open(config2['OUT']) as f:
         images[j,4:-4,4:-4] = f['roman']['data']
+        w = maskhandling.PixelMask1.build(f['roman']['dq'])
+        moments[0,:,:] += np.where(w,1,0.)
+        moments[1,:,:] += np.where(w*f['roman']['data'],1,0.)
+        moments[2,:,:] += np.where(w*f['roman']['data']**2,1,0.)
+
+# number, mean & variance
+moments[1:,:,:] /= moments[0,:,:]+1e-25 # prevent div by zero
+moments[2,:,:] = np.sqrt(np.clip(moments[2,:,:] - moments[1,:,:]**2, 0, None))
+moments_big = np.zeros((3,4096,4096), dtype=np.float32)
+moments_big[:,4:-4,4:-4] = moments
+del moments
 
 # report the statistics
-stack = [slope_ideal, np.median(diffs,axis=0), np.median(images,axis=0)]
+stack = [slope_ideal, np.median(diffs,axis=0), np.median(images,axis=0), moments_big[0,:,:], moments_big[1,:,:], moments_big[2,:,:]]
 out = np.memmap(tempdir+'/out.mmap', dtype=np.float32, mode='w+', shape=(len(stack),4096,4096))
 for i in range(len(stack)):
     out[i,:,:] = stack[i]

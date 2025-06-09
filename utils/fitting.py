@@ -180,7 +180,7 @@ def ramp_fit(data, rdq, pdq, meta, caldir, mylog, exclude_first=True):
 
     # basic ramp fit
     slope, slope_err_read, slope_err_poisson,smap = jump_detect(data, loc_rdq, pdq, meta, caldir, mylog, exclude_first, truncate_ramp=None)
-    fits.PrimaryHDU(smap).writeto('crdet.fits',overwrite=True)
+    #fits.PrimaryHDU(smap).writeto('crdet.fits',overwrite=True) <-- for testing
     # update quality flags if not saturated
     unsat = ~rdq[-1,:,:] & pixel.SATURATED != 0
     rdq |= np.where(unsat[None,:,:], loc_rdq, 0)

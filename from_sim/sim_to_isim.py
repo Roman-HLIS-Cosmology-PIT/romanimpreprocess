@@ -311,7 +311,7 @@ class Image2D:
         self.dec_ = float(self.header['DEC_TARG'])
         self.pa_ = float(self.header['PA_OBSY'])
 
-    def simulate(self, use_read_pattern, caldir=None, seed=43):
+    def simulate(self, use_read_pattern, caldir=None, config={}, seed=43):
         """This is based on the romanisim.image.simulate function,
         but some functionality has been changed to be useful for this class.
 
@@ -384,6 +384,8 @@ class Image2D:
             with asdf.open(caldir['ipc4d']) as f:
                 this_dark = ipc_rev(this_dark, f['roman']['data'])           # dark is in e/s
                 this_flat = ipc_rev(this_flat, f['roman']['data'], gain=g)   # but flat was measured in DN_lin so need gain=g
+                this_flat = np.clip(this_flat,0.,2-2**-21)
+                this_dark = np.clip(this_dark,-0.1*this_flat,None)           # prevent a spurious negative dark from giving an illegal negative total count rate
             # now run with this version of the dark rate
             counts, simcatobj = rimage.simulate_counts(
                 image_mod.meta, [], rng=rng, usecrds=False, darkrate=this_dark,
@@ -643,7 +645,7 @@ def run_config(config):
         seed=int(config['SEED'])
 
     x = Image2D('anlsim', fname=config['IN'])
-    x.simulate(use_read_pattern, caldir)
+    x.simulate(use_read_pattern, caldir=caldir, config=config, seed=seed)
     x.L1_write_to(config['OUT'])
 
     # header information for the WCS

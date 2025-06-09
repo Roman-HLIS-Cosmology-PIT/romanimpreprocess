@@ -18,4 +18,5 @@ JUMP_DETECT_PARS:
   SthreshB: 4.5
   IthreshA: 0.6
   IthreshB: 600.
+FITSOUT: True
 ...
