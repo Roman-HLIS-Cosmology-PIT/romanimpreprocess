@@ -79,3 +79,52 @@ Advanced options
 ======================
 
 *I'll insert a link here for advanced options.*
+
+Converting an L1 to L2 image
+*****************************************************
+
+You can (partially) convert an L1 image (unprocessed data) to an L2 image (2D with instrument artifacts cleaned or flagged) by running the ``gen_cal_image`` script. Some "big picture" known issues at this point are:
+
+- Only the internal steps (propagating bad pixel flags, saturation and cosmic ray flagging, linearity/IPC, dark, flat, bias) work right now. The WCS has to be externally provided, and outputs, while flattened, are still in instrumental units (DN/s).
+
+- Not all of the metadata and error arrays populate correctly in this version. We're working on it!
+
+The script can be run via::
+
+  python3 -m romanimpreprocess.L1_to_L2.gen_cal_image config_L1_to_L2.yaml
+
+The simplest configuration ``config_L1_to_L2.yaml`` that you can run is as follows::
+
+  ---
+  # Input file
+  IN: 'sim1.asdf'
+  OUT: 'sim2.asdf'
+  FITSWCS: 'sim1_asdf_wcshead.txt'
+  CALDIR:
+    linearitylegendre: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_linearitylegendre_DUMMY20250521_SCA10.asdf'
+    gain: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_gain_DUMMY20250521_SCA10.asdf'
+    dark: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_dark_DUMMY20250521_SCA10.asdf'
+    read: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_read_DUMMY20250521_SCA10.asdf'
+    ipc4d: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_ipc4d_DUMMY20250521_SCA10.asdf'
+    flat: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_pflat_DUMMY20250521_SCA10.asdf'
+    biascorr: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_biascorr_DUMMY20250521_SCA10.asdf'
+    mask: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_mask_DUMMY20250521_SCA10.asdf'
+    saturation: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_saturation_DUMMY20250521_SCA10.asdf'
+  ...
+
+Here:
+
+* ``IN`` is the input (L1) file.
+* ``OUT`` is the output (L2) file.
+* The WCS and format is externally provided by one of the \*WCS keywords (in this case: ``FITSWCS``).
+* ``CALDIR`` is a directory of calibration files to use (``romanimpreprocess`` uses this in place of the ``*.imap`` files used in the SOC tools, but it would be straightforward for the calling script to write the imap files into a configuration YAML).
+
+This will generate the output (simulated L2) file, with the provided WCS (in this case
+``sim1_asdf_wcshead.txt``) included.
+
+See `the L1_to_L2 Readme <L1_to_L2/>`_ for detailed instructions and all the options.
+
+Utilities
+***********
+
+The ``utils/`` folder includes some utilities that are intended to be called by the pipelines, but also that users might find useful for postprocessing, visualization, or other applications. See the `utilities page <utils/>`_ for more details.
