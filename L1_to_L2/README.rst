@@ -41,7 +41,7 @@ The configuration is a Python dictionary (normally read from a YAML file).
 
   - Other options are coming soon; at the very least, I need to add gwcs input.
 
-- ``CALDIR``: A directory of calibration files (all ASDF). The calibration files have the same meaning as described in `sim_to_isim <../sim_to_isim/>`_. This has both required and optional entries:
+- ``CALDIR``: A directory of calibration files (all ASDF). The calibration files have the same meaning as described in the `from_sim README <../from_sim/>`_. This has both required and optional entries:
 
   - Required: dark, flat, gain, ipc4d, linearitylegendre, mask, read, saturation
 
