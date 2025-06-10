@@ -62,10 +62,10 @@ for j in range(Nrun):
 
     with asdf.open(config2['OUT']) as f:
         images[j,4:-4,4:-4] = f['roman']['data']
-        w = maskhandling.PixelMask1.build(f['roman']['dq'])
+        w = np.logical_not(maskhandling.PixelMask1.build(f['roman']['dq']))
         moments[0,:,:] += np.where(w,1,0.)
-        moments[1,:,:] += np.where(w*f['roman']['data'],1,0.)
-        moments[2,:,:] += np.where(w*f['roman']['data']**2,1,0.)
+        moments[1,:,:] += np.where(w,f['roman']['data'],0.)
+        moments[2,:,:] += np.where(w,f['roman']['data']**2,0.)
 
 # number, mean & variance
 moments[1:,:,:] /= moments[0,:,:]+1e-25 # prevent div by zero
