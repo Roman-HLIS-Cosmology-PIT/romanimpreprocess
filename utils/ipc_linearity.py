@@ -213,15 +213,18 @@ def correct_cube(data,ipc_file,mylog,gain_file=None):
     """
 
     if ipc_file is None:
-        mylog.append('No IPC file specified, skipping ...\n')
+        if mylog is not None:
+            mylog.append('No IPC file specified, skipping ...\n')
         return
 
     with asdf.open(ipc_file) as F:
         kernel = F['roman']['data']
-        mylog.append('IPC kernel center range --> {:f},{:f}\n'.format(np.amin(kernel[1,1,:,:]), np.amax(kernel[1,1,:,:])))
+        if mylog is not None:
+            mylog.append('IPC kernel center range --> {:f},{:f}\n'.format(np.amin(kernel[1,1,:,:]), np.amax(kernel[1,1,:,:])))
         (ngrp,ny,nx) = np.shape(data)
         nb = (8192+(nx-np.shape(kernel)[-1])//2)%16
-        mylog.append(' ..., {:d} groups, excluding {:d} border pixels\n'.format(ngrp,nb))
+        if mylog is not None:
+            mylog.append(' ..., {:d} groups, excluding {:d} border pixels\n'.format(ngrp,nb))
         if gain_file is None:
             g = 1.
         else:
