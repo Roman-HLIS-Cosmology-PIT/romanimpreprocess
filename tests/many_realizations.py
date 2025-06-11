@@ -43,10 +43,17 @@ if config1['OUT'] != config2['IN']:
 slope_ideal = np.zeros((4096,4096), dtype=np.float32)
 with fits.open(config1['IN']) as f:
     slope_ideal[4:-4,4:-4] = f[0].data/float(f[0].header['EXPTIME'])/pars.g_ideal # this is in DN/s
+scanum = int(config1['IN'].split('_')[-1].split('.')[0])
+print('SCA', scanum); sys.stdout.flush()
+if scanum%3==0:
+    slope_ideal = slope_ideal[:,::-1]
+else:
+    slope_ideal = slope_ideal[::-1,:]
 
 # get differences and outputs
 diffs = np.memmap(tempdir+'/diffs.mmap', dtype=np.float32, mode='w+', shape=(Nrun,4096,4096))
 images = np.memmap(tempdir+'/images.mmap', dtype=np.float32, mode='w+', shape=(Nrun,4096,4096))
+err = np.memmap(tempdir+'/images.mmap', dtype=np.float32, mode='w+', shape=(Nrun,4096,4096))
 moments = np.zeros((3,4088,4088), dtype=np.float32)
 
 for j in range(Nrun):
@@ -62,6 +69,7 @@ for j in range(Nrun):
 
     with asdf.open(config2['OUT']) as f:
         images[j,4:-4,4:-4] = f['roman']['data']
+        err[j,4:-4,4:-4] = f['roman']['err']
         w = np.logical_not(maskhandling.PixelMask1.build(f['roman']['dq']))
         moments[0,:,:] += np.where(w,1,0.)
         moments[1,:,:] += np.where(w,f['roman']['data'],0.)
@@ -70,12 +78,14 @@ for j in range(Nrun):
 # number, mean & variance
 moments[1:,:,:] /= moments[0,:,:]+1e-25 # prevent div by zero
 moments[2,:,:] = np.sqrt(np.clip(moments[2,:,:] - moments[1,:,:]**2, 0, None))
+moments[1:,:,:] = np.where(moments[0,:,:][None,:,:]>.1, moments[1:,:,:], -1000.)
 moments_big = np.zeros((3,4096,4096), dtype=np.float32)
 moments_big[:,4:-4,4:-4] = moments
 del moments
 
 # report the statistics
-stack = [slope_ideal, np.median(diffs,axis=0), np.median(images,axis=0), moments_big[0,:,:], moments_big[1,:,:], moments_big[2,:,:]]
+stack = [slope_ideal, np.median(diffs,axis=0), np.median(images,axis=0), moments_big[0,:,:], moments_big[1,:,:], moments_big[2,:,:],
+     moments_big[1,:,:]-slope_ideal, np.median(err,axis=0)]
 out = np.memmap(tempdir+'/out.mmap', dtype=np.float32, mode='w+', shape=(len(stack),4096,4096))
 for i in range(len(stack)):
     out[i,:,:] = stack[i]

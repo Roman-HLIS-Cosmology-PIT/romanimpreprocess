@@ -16,31 +16,13 @@ import galsim
 
 # local imports
 from . import oututils
-from ..utils import bitutils, ipc_linearity, fitting, flatutils, coordutils, maskhandling
+from ..utils import bitutils, ipc_linearity, fitting, flatutils, coordutils, maskhandling, processlog
 from .. import pars
 
 # stcal imports
 from stcal.saturation.saturation import flag_saturated_pixels
 
-class ProcessLog:
-
-    """This logs events that occurred in the processing.
-
-    Attributes:
-    output : string containing output information
-    reffiles : dictionary of reference files used
-
-    This can be initialized as mylog = ProcessLog().
-    Then other methods can be used to add to the log.
-    """
-
-    def __init__(self):
-        self.output = ""
-        self.reffiles = {}
-
-    def append(self, newoutput):
-        """newoutput should be a string"""
-        self.output += newoutput
+### function definitions below here
 
 def wcs_from_config(config):
     """Gets a WCS object from the configuration."""
@@ -221,7 +203,7 @@ def calibrateimage(config, verbose=True):
     """
 
     # setup
-    mylog = ProcessLog()
+    mylog = processlog.ProcessLog()
 
     # get an initial WCS (if provided)
     # in some simulations we may need to give this if the input stars themselves are simulated

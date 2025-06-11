@@ -120,12 +120,24 @@ def jump_detect(data, rdq, pdq, meta, caldir, mylog, exclude_first=True, truncat
     # jump detection map
     smap = np.zeros((2*(ngrp-start)-3,ny,nx),dtype=np.float32)
 
-    # get read noise and Poisson variance information
+    # get Poisson variance information
+    # first coef (units: 1/time, since K has units of 1/time)
+    # this would be 1/exposure time for simple CDS
+    coef = 0.
+    for i in range(ngrp-start):
+        coef += K[i]**2*meta['tau'][i+start]
+        for j in range(i):
+            coef += 2.*K[i]*K[j]*meta['tbar'][j+start]
     with asdf.open(caldir['gain']) as f:
         dvardt = np.clip(slope/np.clip(f['roman']['data'],1e-4,1e4), 0., None)
                                                  # Poisson variance [DN^2] per second, clipped to be positive and avoid divbyzero
+        slope_err_poisson = np.sqrt( np.clip(coef*dvardt,0,None) ).astype(np.float32)
+
+    # get read noise variance information
     with asdf.open(caldir['read']) as f:
-        sig2read = f['roman']['data']**2         # single read noise [DN]
+        sig2read = f['roman']['data']**2         # single read noise [DN^2]
+        slope_err_read = (f['roman']['data'] * np.sqrt(np.sum(K**2/np.array(meta['N'][:ngrp])))).astype(np.float32)
+            # slope_err_read is a standard deviation [DN]
 
     # threshold map
     x = np.clip(slope,IthreshA,IthreshB)
@@ -160,10 +172,6 @@ def jump_detect(data, rdq, pdq, meta, caldir, mylog, exclude_first=True, truncat
             rdq[i,nb:ny-nb,nb:nx-nb] |= np.where(smap[sl,nb:ny-nb,nb:nx-nb]>sthresh[nb:ny-nb,nb:nx-nb], pixel.JUMP_DET, 0).astype(np.uint32)
 
             sl+=1 # move to next slice
-
-    # will fill these in
-    slope_err_read = np.zeros_like(slope)
-    slope_err_poisson = np.zeros_like(slope)
 
     return slope, slope_err_read, slope_err_poisson, smap
 

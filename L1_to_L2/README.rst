@@ -78,7 +78,54 @@ A sample file would be::
     FITSOUT: True
     ...
 
-Code structure
-====================================
+Summary of algorithms
+=====================================
 
-*Under construction*
+The principal algorithms used in this version of the code are as follows. Some implementations are "Internal" (in ``gen_cal_image``). Others point to other files in this repository (as indicated) or are called from external libraries (e.g., stcal). Note that some choices are provisional and will change as better algorithms become available.
+
+.. list-table:: Algorithms in romanimpreprocess
+   :widths: 25 50 25
+   :header-rows: 1
+
+   * - Step
+     - Algorithm \& reference file(s)
+     - Implementation
+   * - Initialization
+     - Read metadata from L1 image and ``'mask'`` file
+     - Internal, ``initializationstep``
+   * - Saturation check
+     - Compare each group to ``'saturation'`` file (with checks for groups with some reads saturated) 
+     - wrap algorithm from stcal (``flag_saturated_pixels``)
+   * - Reference pixel correction
+     - *not currently implemented*
+     - None
+   * - Bias correction
+     - Simple subtraction, ``'biascorr'`` file
+     - Internal
+   * - (Classical) linearity
+     - Legendre polynomial fit, coefficients in ``'linearitylegendre'``
+     - ``utils.ipc_linearity``
+   * - Dark current subtraction
+     - Simple subtraction, ``'dark'`` (uses ``dark_slope`` array)
+     - Internal, ``subtract_dark_current``
+   * - Inter-pixel capacitance
+     - De-convolution with kernel from ``'ipc4d'``
+     - ``utils.ipc_linearity``
+   * - Ramp fitting
+     - Simplified version of optimal fit `(Casertano et al. 2022) <https://www.stsci.edu/files/live/sites/www/files/home/roman/_documents/Roman-STScI-000394_DeterminingTheBestFittingSlope.pdf>`_ with ramp slope used in weighting fixed.
+     - ``utils.fitting``
+   * - Jump detection
+     - Flagging with single \& double differences `(Sharma & Casertano 2024) <https://ui.adsabs.harvard.edu/abs/2024PASP..136e4504S/abstract>`_, but with no attempt at correction or fitting multiple ramps.
+     - ``utils.fitting``
+   * - Flat field
+     - The flat field is IPC-deconvolved; ``'flat'`` is used, but so is ``'ipc4d'``.
+     - ``utils.flatutils``
+
+*Note*: The ``'gain'`` file is used as ancillary data in many steps whenever a threshold is in elementary charges instead of DN.
+
+
+Some steps are not carried out in this code:
+
+* World Coordinate System determination (we read from another file, this isn't fit by this code; in this case the PIT plans to start by importing the SOC WCS solution)
+
+* absolute calibration (i.e., from flattened DN_lin/s to MJy/sr)

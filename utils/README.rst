@@ -90,3 +90,14 @@ The main application of the IL class is to be able to pass it to another functio
     S = myILobj.apply(Q, electrons=True, electrons_out=False) 
 
 where ``Q`` is a numpy array of the collected charge (specified by the ``electrons`` keyword: True for electrons, False for DN_lin). The starting charge, IPC, gain, and inverse linearity curves are then applied. The output is in DN_raw if ``electrons_out`` is False (but you can convert to apparent electrons, i.e., with the gain factor, if ``electrons_out`` is True).
+
+Process log
+***************
+
+The ``romanimpreprocess.utils.processlog.ProcessLog`` class logs steps that were taken in the processing. Right now it has only the initialization and append functions::
+
+    mylog = romanimpreprocess.utils.processlog.ProcessLog()
+    mylog.append('in this step\n')
+    print(mylog.output)
+
+but more functionality on tracking reference files will be added soon.
