@@ -2,6 +2,7 @@ import numpy as np
 import sys
 from astropy import units as u
 from astropy.io import fits
+from scipy.signal import convolve
 import asdf
 import yaml
 from copy import deepcopy
@@ -16,7 +17,7 @@ import galsim
 
 # local imports
 from . import oututils
-from ..utils import bitutils, ipc_linearity, fitting, flatutils, coordutils, maskhandling, processlog
+from ..utils import bitutils, ipc_linearity, fitting, flatutils, coordutils, maskhandling, processlog, reference_subtraction
 from .. import pars
 
 # stcal imports
@@ -47,6 +48,7 @@ def initializationstep(config, caldir, mylog):
 
     with asdf.open(config['IN']) as f:
         data = np.copy(f['roman']['data'].astype(np.float32))
+        amp33 = np.copy(f['roman']['amp33'].astype(np.float32))
         rdq = np.zeros(np.shape(data), dtype=np.uint32)
 
         # guide windows
@@ -220,8 +222,22 @@ def calibrateimage(config, verbose=True):
     saturation_check(data, meta['read_pattern'], rdq, pdq, caldir, mylog)
     mylog.append('Saturation check complete\n')
 
-    # reference pixel correction is supposed to be here
-    mylog.append('Reference pixel correction not implemented (waiting for the improved module)\n')
+    # reference pixel correction -- right now using a 5-pixel filter of the left & right ref pixels
+    # and the top & bottom pixel subtraction functions from Laliotis et al. (2024)
+    # **This is a placeholder until:
+    #  - amp33 to be implemented (currently the simulation leaves it blank)
+    #  - improved reference pixel correction from GSFC group should be available
+    with asdf.open(caldir['dark']) as f:
+        rsub = np.zeros((ngrp,4096), dtype=np.float32)
+        for j in range(ngrp):
+            image = np.zeros((4096,4224),dtype=np.float32)
+            image[:,:4096] = data[j,:,:] - f['roman']['data'][j,:,:]
+            rsub[j,:] = y = np.median(np.roll(image[:,:4096],4,axis=1)[:,:8],axis=1)
+            ksm = 2
+            y = convolve(np.pad(y,ksm,mode='edge'), np.ones(2*ksm+1)/(2*ksm+1), mode='valid', method='direct')
+            image -= y[:,None]
+            image = reference_subtraction.ref_subtraction_channel(image)
+            data[j,:,:] = image[:,:4096] + f['roman']['data'][j,:,:]
 
     # bias correction
     if 'biascorr' in caldir:
