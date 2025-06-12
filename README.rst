@@ -128,3 +128,5 @@ Utilities
 ***********
 
 The ``utils/`` folder includes some utilities that are intended to be called by the pipelines, but also that users might find useful for postprocessing, visualization, or other applications. See the `utilities page <utils/>`_ for more details.
+
+A few useful test scripts are in `tests <tests/README.rst>`_.
