@@ -15,6 +15,7 @@ import galsim
 from galsim import roman
 import sys
 import yaml
+import copy
 
 import roman_datamodels
 import roman_datamodels.maker_utils as maker_utils
@@ -190,8 +191,9 @@ def noise_1f_frame(rng):
 
     return(block.reshape((4096,128)).astype(np.float32))
 
-def fill_in_refdata_and_1f(im, caldir, rng, tij, fill_in_banding=True):
+def fill_in_refdata_and_1f(im, caldir, rng, tij, fill_in_banding=True, amp33=None):
     """Script to fill in the reference pixel data in an image.
+    If amp33 is provided, then also tries to fill that in (provides a warning if not).
 
     im = the image data cube
     caldir = the calibration dictionary
@@ -221,6 +223,21 @@ def fill_in_refdata_and_1f(im, caldir, rng, tij, fill_in_banding=True):
     # active pixels with the data from im
     noise[:-1,nborder:ny-nborder,nborder:nx-nborder] = im[:,nborder:ny-nborder,nborder:nx-nborder].astype(noise.dtype)
 
+    # reference output
+    amp33info = {
+            'valid': False,
+            'med': np.zeros((4096,128), dtype=np.float32),
+            'std': np.zeros((4096,128), dtype=np.float32),
+            'M_PINK': 0.,
+            'RU_PINK': 0.
+        }
+    if amp33 is not None:
+        with asdf.open(caldir['read']) as f:
+            if 'amp33' in f['roman']:
+                amp33info = copy.deepcopy(f['roman']['amp33'])
+            else:
+                warnings.warn("Didn't find reference output information. Skipping ...")
+
     # generate correlated noise
     if fill_in_banding:
         with asdf.open(caldir['read']) as f:
@@ -233,6 +250,14 @@ def fill_in_refdata_and_1f(im, caldir, rng, tij, fill_in_banding=True):
                 pinknoise = noise_1f_frame(rng) * u_pink + common_noise
                 if ch%2==1: pinknoise = pinknoise[:,::-1]
                 noise[j,:,128*ch:128*(ch+1)] += (pinknoise/len(tij[j])**0.5).astype(noise.dtype)
+
+            # reference output is completely built here (signal + noise)
+            if amp33info['valid']:
+                whitenoise = np.zeros((4096,128),dtype=np.float32)
+                galsim.GaussianDeviate(rng).generate(whitenoise)
+                whitenoise *= amp33info['std']
+                pinknoise = amp33info['RU_PINK']*noise_1f_frame(rng) + amp33info['M_PINK']*common_noise
+                amp33[j,:,:] = (amp33info['med'] + (whitenoise+pinknoise)/len(tij[j])**0.5).astype(amp33.dtype)
 
     # write back to the original
     im[:,:,:] = np.clip(np.round(noise[:-1,:,:]),0,2**16-1).astype(im.dtype)
@@ -426,9 +451,16 @@ class Image2D:
         # convert to asdf
         im, extras = rstl1.make_asdf(l1, dq=l1dq, metadata=image_mod.meta, persistence=persistence)
 
-        # fill in the reference pixels
+        # fill in the reference pixels and reference output
         if caldir is not None:
-            fill_in_refdata_and_1f(im['data'], caldir, rng, rstl1.read_pattern_to_tij(read_pattern))
+
+            # NO_AMP33 would allow us to bypass the reference output, if it isn't in the config file
+            amp33struct = im['amp33']
+            if 'NO_AMP33' in caldir:
+                if caldir['NO_AMP33']:
+                    amp33struct = None
+
+            fill_in_refdata_and_1f(im['data'], caldir, rng, rstl1.read_pattern_to_tij(read_pattern), fill_in_banding=True, amp33=amp33struct)
 
         # get extras
         if reffiles:
@@ -655,8 +687,11 @@ def run_config(config):
     # also write the FITS file for viewing
     if 'FITSOUT' in config:
         if config['FITSOUT']:
+            image_out = np.zeros((ng,4096,4224), dtype=np.uint16)
             with asdf.open(config['OUT']) as f:
-                fits.PrimaryHDU(f['roman']['data']).writeto(config['OUT'][:-5] + '_asdf_to.fits', overwrite=True)
+                image_out[:,:,:4096] = f['roman']['data']
+                image_out[:,:,-128:] = f['roman']['amp33']
+                fits.PrimaryHDU(image_out).writeto(config['OUT'][:-5] + '_asdf_to.fits', overwrite=True)
 
     # simpletest()
 

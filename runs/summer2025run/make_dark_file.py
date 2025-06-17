@@ -75,6 +75,29 @@ with fits.open(sys.argv[3]) as f:
     dark_slope_err = np.where(use1, f[1].data[index_dark1_err,:,:nside], f[1].data[index_dark2_err,:,:nside]).astype(np.float32)
     header = f[1].header
 
+    # now get AMP33 if it is there
+    try:
+        m_pink = float(f['AMP33'].header['M_PINK'])
+        ru_pink = float(f['AMP33'].header['RU_PINK'])
+        amp33_med = np.copy(f['AMP33'].data[0,:,:]).astype(np.float32)
+        amp33_std = np.copy(f['AMP33'].data[1,:,:]).astype(np.float32)
+        amp33 = {
+            'valid': True,
+            'med': amp33_med,
+            'std': amp33_std,
+            'M_PINK': m_pink,
+            'RU_PINK': ru_pink
+        }
+    except:
+        # placeholders
+        amp33 = {
+            'valid': False,
+            'med': np.zeros((4096,128), dtype=np.float32),
+            'std': np.zeros((4096,128), dtype=np.float32),
+            'M_PINK': 0.,
+            'RU_PINK': 0.
+        }
+
 # construct images
 tree = {'roman': {
     'meta': {
@@ -165,7 +188,8 @@ tree = {'roman': {
         'C_PINK': header['C_PINK'],
         'U_PINK': header['U_PINK'],
         'UNIT': 'DN' # both read noise and correlated noise information is in DN
-    }
+    },
+    'amp33': amp33 # reference output noise information
 },
 'notes': {
     'noise_header': header.tostring()

@@ -51,6 +51,8 @@ The configuration is a Python dictionary (normally read from a YAML file).
 
 * ``CNORM``: A normalization constant that scales the overall throughput of the simulation (default: 1.0, since this is relative to the "ideal" effective area curve in the OpenUniverse simulation).
 
+* ``NO_AMP33``: If True, then does not try to read reference output information from the calibration files.
+
 Calibration file requirements
 ====================================
 
@@ -131,6 +133,21 @@ The read noise cube. The tree contains:
 * ``['roman']['resetnoise']``: 4096 x 4096 array, float32, DN:
 
   The standard deviation of the reset noise.
+
+* ``['roman']['anc']['C_PINK']`` and ``['roman']['anc']['U_PINK']``: float, DN:
+
+  The amplitudes for correlated and uncorrelated (across the 32 readout channels) 1/f noise.
+
+* ``['roman']['amp33']``: (optional) If specified, contains information needed to simulate the reference output. The contents are:
+
+  * ``['roman']['amp33']['valid']``: True
+
+  * ``['roman']['amp33']['med']``: 4096 x 128 array, float32, DN: median of the reference output
+
+  * ``['roman']['amp33']['std']``: 4096 x 128 array, float32, DN: standard deviation of the reference output
+
+  * ``['roman']['amp33']['M_PINK']`` and ``['roman']['amp33']['RU_PINK']``: float: parameters for 1/f noise in the reference output.
+
 
 CALDIR['biascorr'] (optional)
 -----------------------------------------

@@ -64,10 +64,14 @@ The output file types and contents of the ``roman`` branch are as follows (diffe
 - ``pflat`` **This is read separately in a few places so we copied it out of linearitylegendre. This is only the pixel-level flat right now.**
     - ``data`` (pixel level flat field, 4096 x 4096, median rescaled to 1)
     - ``dq`` (4096 x 4096, uint32 flags)
-- ``read`` **The resetnoise array is also included so that we can implement a random reset value in the simulation.**
+- ``read`` **The resetnoise array is also included so that we can implement a random reset value in the simulation. We also added noise information for the reference output.**
     - ``anc`` (dictionary of correlated noise parameters: at least the parameters ``U_PINK`` and ``C_PINK`` for uncorrelated and correlated 1/f noise amplitudes)
     - ``data`` (1 sigma read noise per pixel, 4096 x 4096, DN)
     - ``resetnoise`` (1 sigma reset noise per pixel, 4096 x 4096, DN)
+    - ``amp33`` (dictionary):
+        - ``med`` (median reference output, 4096 x 128, DN)
+        - ``std`` (sigma of reference output, 4096 x 128, DN)
+        - ``M_PINK`` and ``RU_PINK`` (reference output 1/f noise parameters)
 - ``saturation``
     - ``data`` (saturation level on raw data, 4096 x 4096, DN)
     - ``dq`` (4096 x 4096, uint32 flags)
