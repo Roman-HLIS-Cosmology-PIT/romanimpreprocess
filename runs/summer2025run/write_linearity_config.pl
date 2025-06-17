@@ -56,7 +56,7 @@ print qq~"DARK": -1,\n~;
 print qq~"TFRAME": 3.04,\n~;
 
 # order of the polynomial to fit
-print qq~"P_ORDER": 8,\n~;
+print qq~"P_ORDER": 10,\n~;
 
 # where the output file goes
 # note both a .asdf and a .fits will be generated

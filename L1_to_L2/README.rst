@@ -97,8 +97,8 @@ The principal algorithms used in this version of the code are as follows. Some i
      - Compare each group to ``'saturation'`` file (with checks for groups with some reads saturated) 
      - wrap algorithm from stcal (``flag_saturated_pixels``)
    * - Reference pixel correction
-     - Simple interpolation from reference pixels (*placeholder since amp33 not populated in the current simulation*)
-     - Internal + ``utils.reference_subtraction``
+     - Simple interpolation from reference pixels \& reference output
+     - ``utils.reference_subtraction``
    * - Bias correction
      - Simple subtraction, ``'biascorr'`` file
      - Internal

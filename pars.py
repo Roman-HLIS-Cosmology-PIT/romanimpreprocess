@@ -1,4 +1,14 @@
-# additional parameters
+"""Dimensionality information"""
+
+# Detector array parameters
+nside = 4096
+nborder = 4
+nchannel = 32
+
+# Useful combinations
+nside_active = nside - 2*nborder
+channelwidth = nside//nchannel
+nside_augmented = nside+channelwidth
 
 """See the LaTeX documentation for how these are used."""
 

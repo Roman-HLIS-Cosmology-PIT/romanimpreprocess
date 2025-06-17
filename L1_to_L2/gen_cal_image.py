@@ -44,6 +44,7 @@ def initializationstep(config, caldir, mylog):
     meta : dictionary of assorted other metadata
            (right now: frame_time and read_pattern)
     l1meta : metadata stright from the L1 file
+    amp33 : reference output
     """
 
     with asdf.open(config['IN']) as f:
@@ -99,7 +100,7 @@ def initializationstep(config, caldir, mylog):
     # pixel dq
     pdq = np.bitwise_or.reduce(rdq, axis=0)
 
-    return data, rdq, pdq, meta, l1meta
+    return data, rdq, pdq, meta, l1meta, amp33
 
 def saturation_check(data, read_pattern, rdq, pdq, caldir, mylog):
     """Performs a saturation check on the data cube (data) using the calibration files in caldir.
@@ -213,7 +214,7 @@ def calibrateimage(config, verbose=True):
     caldir = config['CALDIR']
 
     # initialize a data cube and data quality
-    data, rdq, pdq, meta, l1meta = initializationstep(config, caldir, mylog)
+    data, rdq, pdq, meta, l1meta, amp33 = initializationstep(config, caldir, mylog)
     (ngrp,ny,nx) = np.shape(data)
     nb=meta['nborder']=4
     mylog.append('Initialized data\n')
@@ -232,10 +233,15 @@ def calibrateimage(config, verbose=True):
         for j in range(ngrp):
             image = np.zeros((4096,4224),dtype=np.float32)
             image[:,:4096] = data[j,:,:] - f['roman']['data'][j,:,:]
-            rsub[j,:] = y = np.median(np.roll(image[:,:4096],4,axis=1)[:,:8],axis=1)
-            ksm = 2
-            y = convolve(np.pad(y,ksm,mode='edge'), np.ones(2*ksm+1)/(2*ksm+1), mode='valid', method='direct')
-            image -= y[:,None]
+            with asdf.open(caldir['read']) as fr:
+                if 'amp33' in fr['roman']:
+                    image[:,-128:] = amp33[j,:,:] - fr['roman']['amp33']['med']
+                    image[:,-128:] -= np.median(image[:,-128:])
+            #rsub[j,:] = y = np.median(np.roll(image[:,:4096],4,axis=1)[:,:8],axis=1)
+            #ksm = 2
+            #y = convolve(np.pad(y,ksm,mode='edge'), np.ones(2*ksm+1)/(2*ksm+1), mode='valid', method='direct')
+            #image -= y[:,None]
+            image = reference_subtraction.ref_subtraction_row(image)
             image = reference_subtraction.ref_subtraction_channel(image)
             data[j,:,:] = image[:,:4096] + f['roman']['data'][j,:,:]
 
