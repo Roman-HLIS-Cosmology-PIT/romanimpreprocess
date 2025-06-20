@@ -138,7 +138,7 @@ def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, ts
         start_e = resetnoise
     )
     # set the size of the data quality array
-    e2dn_model.set_dq(ngroup=len(read_pattern), nborder=4)
+    e2dn_model.set_dq(ngroup=len(read_pattern), nborder=pars.nborder)
 
     #print(read_pattern)
     #print(len(read_pattern))
@@ -170,7 +170,7 @@ def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, ts
 def noise_1f_frame(rng):
     """Generates a 4096x128 block of 1/f noise."""
 
-    len = 8192*128
+    len = 2*pars.nside*pars.channelwidth
 
     this_array = np.zeros(2*len)
     galsim.GaussianDeviate(rng).generate(this_array)
@@ -189,7 +189,7 @@ def noise_1f_frame(rng):
     block -= np.mean(block)
     #print('generated noise, std -->', np.std(block))
 
-    return(block.reshape((4096,128)).astype(np.float32))
+    return(block.reshape((pars.nside,pars.channelwidth)).astype(np.float32))
 
 def fill_in_refdata_and_1f(im, caldir, rng, tij, fill_in_banding=True, amp33=None):
     """Script to fill in the reference pixel data in an image.
@@ -226,8 +226,8 @@ def fill_in_refdata_and_1f(im, caldir, rng, tij, fill_in_banding=True, amp33=Non
     # reference output
     amp33info = {
             'valid': False,
-            'med': np.zeros((4096,128), dtype=np.float32),
-            'std': np.zeros((4096,128), dtype=np.float32),
+            'med': np.zeros((pars.nside,pars.channelwidth), dtype=np.float32),
+            'std': np.zeros((pars.nside,pars.channelwidth), dtype=np.float32),
             'M_PINK': 0.,
             'RU_PINK': 0.
         }
@@ -249,11 +249,11 @@ def fill_in_refdata_and_1f(im, caldir, rng, tij, fill_in_banding=True, amp33=Non
             for ch in range(32):
                 pinknoise = noise_1f_frame(rng) * u_pink + common_noise
                 if ch%2==1: pinknoise = pinknoise[:,::-1]
-                noise[j,:,128*ch:128*(ch+1)] += (pinknoise/len(tij[j])**0.5).astype(noise.dtype)
+                noise[j,:,pars.channelwidth*ch:pars.channelwidth*(ch+1)] += (pinknoise/len(tij[j])**0.5).astype(noise.dtype)
 
             # reference output is completely built here (signal + noise)
             if amp33info['valid']:
-                whitenoise = np.zeros((4096,128),dtype=np.float32)
+                whitenoise = np.zeros((pars.nside,pars.channelwidth),dtype=np.float32)
                 galsim.GaussianDeviate(rng).generate(whitenoise)
                 whitenoise *= amp33info['std']
                 pinknoise = amp33info['RU_PINK']*noise_1f_frame(rng) + amp33info['M_PINK']*common_noise
@@ -423,12 +423,12 @@ class Image2D:
         # the input simulations include the pixel area in their estimated e/s
         # but the flat field will ultimately include the pixel area as well!
         # therefore we need to re-scale the flat to the ideal pixel area (0.11 arcsec)^2
-        flat_witharea = this_flat / ( pixelarea(self.galsimwcs,N=4088)/pars.Omega_ideal )
+        flat_witharea = this_flat / ( pixelarea(self.galsimwcs,N=pars.nside_active)/pars.Omega_ideal )
         if 'CNORM' in config:
             C = float(config['CNORM'])
         else:
             C = 1.
-        print(pixelarea(self.galsimwcs,N=4088)[::1024,::1024])
+        print(pixelarea(self.galsimwcs,N=pars.nside_active)[::1024,::1024])
         print(flat_witharea[::1024,::1024]); sys.stdout.flush()
         counts.array[:,:] += rng.np.poisson(lam=np.clip(C*t*g/pars.g_ideal*self.image*flat_witharea,0,None)).astype(counts.array.dtype)
 
@@ -589,7 +589,7 @@ class Image2D_from_L1(Image2D):
             # should work if this is a GalSim WCS
             try:
                 header = fits.Header()
-                self.thewcs.writeToFitsHeader(header, galsim.BoundsI(0,4088,0,4088))
+                self.thewcs.writeToFitsHeader(header, galsim.BoundsI(0,pars.nside_active,0,pars.nside_active))
                 # offset to FITS convention -- this is undone later
                 header['CRPIX1'] += 1; header['CRPIX2'] += 1
                 wcsobj = Blank()
@@ -687,10 +687,10 @@ def run_config(config):
     # also write the FITS file for viewing
     if 'FITSOUT' in config:
         if config['FITSOUT']:
-            image_out = np.zeros((ng,4096,4224), dtype=np.uint16)
+            image_out = np.zeros((ng,pars.nside,pars.nside_augmented), dtype=np.uint16)
             with asdf.open(config['OUT']) as f:
-                image_out[:,:,:4096] = f['roman']['data']
-                image_out[:,:,-128:] = f['roman']['amp33']
+                image_out[:,:,:pars.nside] = f['roman']['data']
+                image_out[:,:,pars.nside:] = f['roman']['amp33']
                 fits.PrimaryHDU(image_out).writeto(config['OUT'][:-5] + '_asdf_to.fits', overwrite=True)
 
     # simpletest()

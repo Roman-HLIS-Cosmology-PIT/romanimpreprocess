@@ -17,7 +17,7 @@ import galsim
 
 # local imports
 from . import oututils
-from ..utils import bitutils, ipc_linearity, fitting, flatutils, coordutils, maskhandling, processlog, reference_subtraction
+from ..utils import bitutils, ipc_linearity, fitting, flatutils, coordutils, maskhandling, processlog, reference_subtraction, sky
 from .. import pars
 
 # stcal imports
@@ -63,13 +63,13 @@ def initializationstep(config, caldir, mylog):
         ystop  = int(guide_star['window_ystop'])
         mylog.append('guide window: x={:d}:{:d}, y={:d}:{:d}\n'.format(xstart, xstop, ystart, ystop))
         # if the metadata contain a real window, mask that row
-        if xstart>=0 and ystart>=0 and xstop<=4096 and ystop<=4096:
+        if xstart>=0 and ystart>=0 and xstop<=pars.nside and ystop<=pars.nside:
             rdq[:,:,xstart:xstop] |= pixel.GW_AFFECTED_DATA
             # now flag potential IPC
-            if xstart>4: xstart -= 1
-            if xstop<4092: xstop += 1
-            if ystart>4: ystart -= 1
-            if ystop<4092: ystop += 1
+            if xstart>pars.nborder: xstart -= 1
+            if xstop<pars.nside-pars.nborder: xstop += 1
+            if ystart>pars.nborder: ystart -= 1
+            if ystop<pars.nside-pars.nborder: ystop += 1
             rdq[:,ystart:ystop,xstart:xstop] |= pixel.GW_AFFECTED_DATA
 
         # pull out metadata that we want later
@@ -180,7 +180,7 @@ def repackage_wcs(thewcs):
         # should work if this is a GalSim WCS
         try:
             header = fits.Header()
-            thewcs.writeToFitsHeader(header, galsim.BoundsI(0,4088,0,4088))
+            thewcs.writeToFitsHeader(header, galsim.BoundsI(0,pars.nside_active,0,pars.nside_active))
             # offset to FITS convention -- this is undone later
             header['CRPIX1'] += 1; header['CRPIX2'] += 1
             wcsobj = Blank()
@@ -216,7 +216,7 @@ def calibrateimage(config, verbose=True):
     # initialize a data cube and data quality
     data, rdq, pdq, meta, l1meta, amp33 = initializationstep(config, caldir, mylog)
     (ngrp,ny,nx) = np.shape(data)
-    nb=meta['nborder']=4
+    nb=meta['nborder']=pars.nborder
     mylog.append('Initialized data\n')
 
     # saturation check
@@ -229,21 +229,17 @@ def calibrateimage(config, verbose=True):
     #  - amp33 to be implemented (currently the simulation leaves it blank)
     #  - improved reference pixel correction from GSFC group should be available
     with asdf.open(caldir['dark']) as f:
-        rsub = np.zeros((ngrp,4096), dtype=np.float32)
+        rsub = np.zeros((ngrp,pars.nside), dtype=np.float32)
         for j in range(ngrp):
-            image = np.zeros((4096,4224),dtype=np.float32)
-            image[:,:4096] = data[j,:,:] - f['roman']['data'][j,:,:]
+            image = np.zeros((pars.nside,pars.nside_augmented),dtype=np.float32)
+            image[:,:pars.nside] = data[j,:,:] - f['roman']['data'][j,:,:]
             with asdf.open(caldir['read']) as fr:
                 if 'amp33' in fr['roman']:
-                    image[:,-128:] = amp33[j,:,:] - fr['roman']['amp33']['med']
-                    image[:,-128:] -= np.median(image[:,-128:])
-            #rsub[j,:] = y = np.median(np.roll(image[:,:4096],4,axis=1)[:,:8],axis=1)
-            #ksm = 2
-            #y = convolve(np.pad(y,ksm,mode='edge'), np.ones(2*ksm+1)/(2*ksm+1), mode='valid', method='direct')
-            #image -= y[:,None]
-            image = reference_subtraction.ref_subtraction_row(image)
-            image = reference_subtraction.ref_subtraction_channel(image)
-            data[j,:,:] = image[:,:4096] + f['roman']['data'][j,:,:]
+                    image[:,-pars.channelwidth:] = amp33[j,:,:] - fr['roman']['amp33']['med']
+                    image[:,-pars.channelwidth:] -= np.median(image[:,-pars.channelwidth:])
+            image = reference_subtraction.ref_subtraction_row(image, use_ref_channel=True)
+            image = reference_subtraction.ref_subtraction_channel(image, use_ref_channel=True)
+            data[j,:,:] = image[:,:pars.nside] + f['roman']['data'][j,:,:]
 
     # bias correction
     if 'biascorr' in caldir:
@@ -281,7 +277,9 @@ def calibrateimage(config, verbose=True):
         mylog.append('skipping IPC correction\n')
 
     # ramp fitting
-    u_ = 0.4/1.8/7.**2 # right now force the fitting to 0.4 DN/s, g=1.8 e/DN, sigma_read=7 DN
+    uopt = {'slope': .4, 'gain': 1.8, 'sigma_read': 6.5}
+    if 'RAMP_OPT_PARS' in config: uopt = config['RAMP_OPT_PARS']
+    u_ = float(uopt['slope'])/float(uopt['gain'])/float(uopt['sigma_read'])**2
     meta['K'] = fitting.construct_weights(u_, meta, exclude_first=True)
     mylog.append('\n\nRamp fit optimized for u = {:11.5E} s**-1\n'.format(u_))
     mylog.append('weights = {}\n'.format(meta['K']))
@@ -314,16 +312,28 @@ def calibrateimage(config, verbose=True):
         metadata=l1meta, persistence=persistence,
         dq=pdq[nb:-nb,nb:-nb], imwcs=repackage_wcs(thewcs), gain=medgain)
 
-
     oututils.add_in_ref_data(im2, config['IN'], rdq, pdq)
 
-    # Create metadata for simulation parameter
-    romanisimdict2 = {'version': rstversion}
-    romanisimdict2.update(**extras2)
+    # update the metadata
+    oututils.update_flags(im2, 'gen_cal_image')
+    oututils.add_in_provenance(im2, 'gen_cal_image')
+
+    # sky information --- not trying to do subtraction here
+    m = maskhandling.PixelMask1.build(pdq)
+    medsky,_ = sky.smooth_mode(sky.binkxk(np.where(np.logical_not(m),slope,np.nan),4))
+
+    # process information specific to this code
+    processinfo = {
+        'medsky': medsky,
+        'ramp_opt_pars': uopt,
+        'weights': meta['K'],
+        'config': config,
+        'log': mylog.output
+    }
 
     # Write file
     af2 = asdf.AsdfFile()
-    af2.tree = {'roman': im2, 'romanisim': romanisimdict2}
+    af2.tree = {'roman': im2, 'processinfo': processinfo}
     af2.write_to(open(config['OUT'], 'wb'))
 
     if 'FITSOUT' in config:
@@ -337,15 +347,7 @@ def calibrateimage(config, verbose=True):
                         ).writeto(config['OUT'][:-5]+'_asdf_to.fits', overwrite=True)
 
     print(mylog.output)
-
     return
-    # test stuff below here -- shouldn't be executed because of the return
-    #print(pdq[:40:4,:40:4])
-    #fits.PrimaryHDU(bitutils.convert_uint32_to_bits(rdq[-1,:,:])).writeto('rdq.fits', overwrite=True)
-    #fits.PrimaryHDU(bitutils.convert_uint32_to_bits(pdq)).writeto('pdq.fits', overwrite=True)
-    #fits.PrimaryHDU(slope).writeto('slope.fits', overwrite=True)
-    #slopemask = pdq & (pixel.JUMP_DET | pixel.DO_NOT_USE | pixel.NO_LIN_CORR | pixel.HOT) != 0
-    #fits.PrimaryHDU(np.where(np.logical_not(slopemask),slope,-1000.)).writeto('slopemask.fits', overwrite=True)
 
 if __name__=="__main__":
 

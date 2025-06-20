@@ -49,6 +49,8 @@ The configuration is a Python dictionary (normally read from a YAML file).
 
 **Optional fields:**
 
+- ``RAMP_OPT_PARS``: Parameters for which to optimize the ramp weights (slope in DN/s, gain in e/DN, sigma_read in DN).
+
 - ``JUMP_DETECT_PARS``: Threshold parameters for the jump detection algorithm (we may ultimately enable more than one choice).
 
 - ``FITSOUT``: If True, also writes a FITS output with the ``.asdf`` ending replaced with ``_asdf_to.fits``.
@@ -70,6 +72,10 @@ A sample file would be::
       biascorr: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_biascorr_DUMMY20250521_SCA10.asdf'
       mask: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_mask_DUMMY20250521_SCA10.asdf'
       saturation: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_saturation_DUMMY20250521_SCA10.asdf'
+    RAMP_OPT_PARS:
+      slope: 0.4
+      gain: 1.8
+      sigma_read: 7.
     JUMP_DETECT_PARS:
       SthreshA: 5.5
       SthreshB: 4.5
