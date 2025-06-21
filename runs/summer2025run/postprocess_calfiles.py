@@ -7,6 +7,7 @@ import json
 import yaml
 
 from loc_pars import g_ideal # get the ideal gain
+from loc_sky import medfit
 
 """This script makes a p-flat and saturation file from a linearitylegendre file."""
 
@@ -20,7 +21,12 @@ outfile_flat = infile.replace('_linearitylegendre_', '_pflat_')
 with asdf.open(infile) as f:
     with asdf.open(gain) as g:
         pflat = f['roman']['pflat'][0,:,:]
-        pflat /= np.median(pflat) # normalize to 1
+        # pflat /= np.median(pflat) # normalize to 1 <-- now replaced with quadratic
+
+        # quadratic fit
+        coefs, pflatmed = medfit(pflat,N=6,order=2)
+        print(coefs)
+        pflat /= pflatmed
 
         """This scaling will be replaced in the future
         when we have a measurement of the L-flat.

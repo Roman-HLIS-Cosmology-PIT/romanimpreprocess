@@ -82,7 +82,7 @@ rm summary_files_$USE_SCA.txt
 # run the noise script
 cd $SOLID_WAFFLE_DIR
 pwd
-python noise_run.py -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits -o $TARGET_DIR/noise_SCA$USE_SCA.fits -n 100 -t 2 -cd 5.0 -rh 7 -tn 34
+python noise_run.py -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits -o $TARGET_DIR/noise_SCA$USE_SCA.fits -n 100 -t 2 -cd 5.0 -rh 7 -tn 34 -ro
 # here:
 # 6 = file format (consistent with FPS)
 # $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits = name of first noise file
@@ -92,6 +92,12 @@ python noise_run.py -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits -o 
 # 5.0 = cutoff for 'low CDS' pixel
 # 7 = row overhead (placeholder, not actually propagated into the reference files)
 # 34 = number of frames to use for 'total' noise and dark current determination
+# -ro = include reference output in build
+
+# and generate histograms for the DNL
+python histograms.py -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits -o $TARGET_DIR/histD_SCA$USE_SCA.dat -n 100
+python histograms.py -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_LoFlat_001.fits -o $TARGET_DIR/histG_SCA$USE_SCA.dat -n 30
+python histograms.py -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_Flat_001.fits -o $TARGET_DIR/histF_SCA$USE_SCA.dat -n 50
 
 # build the dark file
 cd $SCRIPT_DIR
@@ -109,9 +115,13 @@ python linearity_run.py $SCRIPT_DIR/linearity_pars_$USE_SCA.json
 # post-process these to get pflat and saturation
 cd $SCRIPT_DIR
 pwd
+# symbolic links are a temporary solution --- I want to get rid of this in the next iteration
+# since it prevents relative imports from the utilities
 ln -s ../../utils/ipc_linearity.py loc_ipc_linearity.py
+ln -s ../../utils/sky.py loc_sky.py
 ln -s ../../pars.py loc_pars.py
 python postprocess_calfiles.py $TARGET_DIR/roman_wfi_linearitylegendre_$TAG\_SCA$USE_SCA.asdf $USE_SCA $READ_PATTERN_NAME
 python makemask.py $TARGET_DIR/roman_wfi_mask_$TAG\_SCA$USE_SCA.asdf $USE_SCA $READ_PATTERN_NAME
 rm loc_ipc_linearity.py
+rm loc_sky.py
 rm loc_pars.py
