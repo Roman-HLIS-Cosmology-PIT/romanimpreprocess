@@ -53,7 +53,7 @@ for j in range(1,51):
   # raw data was in Detector frame, switch to science
   if True:
      if sca%3==0:
-       cube = cube[:,:,:,::-1]
+       cube[:,:,:,:4096] = cube[:,:,:,4095::-1]
      else:
        cube = cube[:,:,::-1,:]
 

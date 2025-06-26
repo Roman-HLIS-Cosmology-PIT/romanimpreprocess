@@ -6,7 +6,8 @@ print qq~\{\n~;
 #print qq~"STOP": 2,\n~;
 
 # the SCA number
-print qq~"SCA": $SCA,\n~;
+$SCAint = int($SCA);
+print qq~"SCA": $SCAint,\n~;
 
 # this section gives the information on the ramps that you want to use
 # in the linearity fit.
