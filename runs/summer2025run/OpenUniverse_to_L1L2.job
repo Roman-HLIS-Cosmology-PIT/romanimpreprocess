@@ -1,0 +1,9 @@
+#!/bin/bash
+#SBATCH --job-name=sim
+#SBATCH --account=PCON0003
+#SBATCH --time=48:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=2
+cd $SLURM_SUBMIT_DIR
+cd ../../..
+python3 -m romanimpreprocess.runs.summer2025run.OpenUniverse_to_L1L2 $USE_SCA > simprocess-$USE_SCA.log

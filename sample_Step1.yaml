@@ -23,4 +23,9 @@ JUMP_DETECT_PARS:
   IthreshA: 0.6
   IthreshB: 600.
 FITSOUT: True
+NOISE:
+  LAYER: ['RP', 'RS2']
+  TEMP: /fs/scratch/PCON0003/cond0007/MyNoise.asdf
+  SEED: 15000
+  OUT: 'sim2P_noise.asdf'
 ...

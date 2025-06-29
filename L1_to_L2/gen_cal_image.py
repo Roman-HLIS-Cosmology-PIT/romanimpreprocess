@@ -326,10 +326,23 @@ def calibrateimage(config, verbose=True):
     processinfo = {
         'medsky': medsky,
         'ramp_opt_pars': uopt,
+        'meta': meta,
         'weights': meta['K'],
         'config': config,
-        'log': mylog.output
+        'log': mylog.output,
+        'exclude_first': True
     }
+
+    # this is for getting the ramp data so we know which range was used
+    # (max 127 groups)
+    if 'SLICEOUT' in config:
+        if config['SLICEOUT']:
+            if ngrp>=128: raise ValueError('too many groups')
+            endslice = np.zeros((pars.nside_active,pars.nside_active), dtype=np.int8) - 1
+            nb = pars.nborder
+            for iend in range(1,ngrp):
+                endslice = np.where(rdq[iend,nb:-nb,nb:-nb] & ~rdq[iend-1,nb:-nb,nb:-nb] & pixel.SATURATED != 0, iend-1, endslice)
+            processinfo['endslice'] = endslice
 
     # Write file
     af2 = asdf.AsdfFile()
@@ -338,10 +351,10 @@ def calibrateimage(config, verbose=True):
 
     if 'FITSOUT' in config:
         if config['FITSOUT']:
-           good = ~ maskhandling.PixelMask1.build(im2['dq']) # this is one choice
+            good = ~ maskhandling.PixelMask1.build(im2['dq']) # this is one choice
 
-           # note we accept saturated pixels in this step
-           fits.HDUList([fits.PrimaryHDU(im2['data']),
+            # note we accept saturated pixels in this step
+            fits.HDUList([fits.PrimaryHDU(im2['data']),
                          fits.ImageHDU(im2['dq']),
                          fits.ImageHDU(np.where(good, im2['data'], -1000))]
                         ).writeto(config['OUT'][:-5]+'_asdf_to.fits', overwrite=True)

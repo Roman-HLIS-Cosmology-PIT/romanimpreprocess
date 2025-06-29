@@ -219,3 +219,12 @@ Linearity data are stored in Legendre polynomial format for numerical stability.
 * Then we have Slin = sum_{L=0}^{p_order} ``data[L,:,:]`` * P_L(z)
 
 Note that the linearization also takes out an intercept: the reference level Sref (in raw DN) maps to a linearized signal of 0 DN_lin.
+
+Example
+========
+
+Some focal plane images (generated using ``utils.fpaplot`` from the April 2023 focal plane test) are shown below:
+
+.. image:: figs/focalplane.png
+  :width: 600
+  :alt: image
