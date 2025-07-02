@@ -10,12 +10,25 @@ The ``gen_cal_image.py`` script converts L1 to L2 images. It carries out the pip
 
   python3 -m romanimpreprocess.L1_to_L2.gen_cal_image config.yaml
 
+or if you want to also generate noise images::
+
+  # this calls gen_cal_image internally, so you don't need that as an extra step
+  python3 -m romanimpreprocess.L1_to_L2.gen_noise_image romanimpreprocess/sample_Step1.yaml
+
 You can also call this from python using the code::
 
     import yaml
     with open('config.yaml') as f:
         config = yaml.safe_load(f)
-    romanimpreprocess.L1_to_L2.gen_cal_image(config)
+    romanimpreprocess.L1_to_L2.gen_cal_image.calibrateimage(config)
+
+or to generate noise images as well::
+
+    import yaml
+    with open('config.yaml') as f:
+        config = yaml.safe_load(f)
+    romanimpreprocess.L1_to_L2.gen_cal_image.calibrateimage(config | {'SLICEOUT':True}) # add slice information
+    romanimpreprocess.L1_to_L2.gen_noise_image.generate_all_noise(config)
 
 which allows you to process many images in a scripted way.
 
@@ -29,7 +42,7 @@ Fields in the configuration
 
 The configuration is a Python dictionary (normally read from a YAML file).
 
-**Required fields:**
+**Required fields for all uses:**
 
 - ``IN``: File name for the input L1 data cube (ASDF format).
 
@@ -46,6 +59,18 @@ The configuration is a Python dictionary (normally read from a YAML file).
   - Required: dark, flat, gain, ipc4d, linearitylegendre, mask, read, saturation
 
   - Optional: biascorr
+
+**Fields required only for noise generation:**
+
+- ``NOISE``: The information on which noise fields to generate.
+
+  - ``LAYER``: A list of noise layers to generate, e.g., ``['RP', 'RS2']`` (a description of the allowed codes is in development).
+
+  - ``TEMP``: Scratch storage location for intermediate steps in simulated noise files as they are being generated. (This only needs to exist while the script is running, so temporary storage on the compute node, as provided by many HPC systems, should work.)
+
+  - ``SEED``: Random number seed (positive integer).
+
+  - ``OUT``: Output noise file (.asdf). The output ASDF tree has a ``'config'`` branch with the configuration file and a ``'noise'`` branch with the float32 numpy array of the noise images.
 
 **Optional fields:**
 
@@ -82,6 +107,11 @@ A sample file would be::
       IthreshA: 0.6
       IthreshB: 600.
     FITSOUT: True
+    NOISE:
+      LAYER: ['RP', 'RS2']
+      TEMP: /fs/scratch/PCON0003/cond0007/MyNoise.asdf
+      SEED: 15000
+      OUT: 'sim2P_noise.asdf'
     ...
 
 Summary of algorithms
