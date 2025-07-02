@@ -9,18 +9,46 @@ from multiprocessing import Pool
 import datetime
 
 from ...from_sim import sim_to_isim
-from ...L1_to_L2 import gen_cal_image
+from ...L1_to_L2 import gen_cal_image, gen_noise_image
+from ...utils import maskhandling
 
 ### --- Setup information ---
-input_dir = '/fs/scratch/PCON0003/cond0007/anl-run-in-prod/truth/'
-output_dir = '/fs/scratch/PCON0003/cond0007/summer2025/'
-cal_dir = '/fs/scratch/PCON0003/cond0007/cal/'
-tag = 'DUMMY20250521'
-seed = 500 # starting seed
-dseed = 10 # step for seed
-Nmax = 4
 
-use_sca = int(sys.argv[1])
+# helper function to get commands of the form --keychar=value
+def _getval(keychar, default=None):
+    n = len(keychar)
+    for a in sys.argv[1:]:
+        if a[:n+3] == '--'+keychar+'=':
+           return a[n+3:]
+    return default
+
+input_dir = _getval('in')
+output_dir = _getval('out', default='.')
+cal_dir = _getval('cal')
+tag = _getval('tag')
+seed = int(_getval('seed', default='500'))
+dseed = int(_getval('dseed', default='10'))
+temp_dir = os.getenv('TMPDIR', default=output_dir+'/L2')
+use_sca = int(_getval('sca', default='1'))
+Nmax = int(_getval('nmax', default='999')) # maximum number of chips to build
+
+print('arguments:')
+print('  input_dir =', input_dir)
+print('  output_dir =', output_dir)
+print('  cal_dir =', cal_dir)
+print('  tag =', tag)
+print('  seed =', seed)
+print('  dseed =', dseed)
+print('  temp_dir =', temp_dir)
+print('  use_sca =', use_sca)
+print('  Nmax =', Nmax)
+sys.stdout.flush()
+
+### --- now we have the information for this run ---
+
+# space seeds for SCAs
+nsca = 18
+seed += dseed*use_sca
 
 # make directories if SCA 1
 if use_sca==1:
@@ -72,6 +100,7 @@ for infile in os.listdir(input_dir):
         'CNORM': 1.0,
         'SEED': seed
     }
+    seed += dseed*nsca
 
     # Level 2 config
     caldir = {}
@@ -85,11 +114,17 @@ for infile in os.listdir(input_dir):
         'CALDIR': caldir,
         'RAMP_OPT_PARS': {'slope': 0.4, 'gain': 1.8, 'sigma_read': 7.},
         'JUMP_DETECT_PARS': {'SthreshA': 5.5, 'SthreshB': 4.5, 'IthreshA': 0.6, 'IthreshB': 600.},
-        'FITSOUT': True
+        'FITSOUT': False,
+        'NOISE': {
+            'LAYER': ['RS2', 'RS2'],
+            'TEMP': temp_dir + '/temp_{:s}_{:d}_{:d}.asdf'.format(band,obsid,sca),
+            'SEED': seed,
+            'OUT': output_dir + '/L2/sim_L2_{:s}_{:d}_{:d}_noise.asdf'.format(band,obsid,sca)
+        }
     }
     runlist.append((j,cfgs1,cfgs2))
 
-    seed += dseed
+    seed += dseed*nsca
     j+=1
 
 # now run the configurations
@@ -108,7 +143,10 @@ def f(r):
     print(c1)
     sim_to_isim.run_config(c1)
     print(c2)
-    gen_cal_image.calibrateimage(c2)
+    gen_noise_image.calibrateimage(c2 | {'SLICEOUT': True})
+    gen_noise_image.generate_all_noise(c2)
+    print('write mask')
+    maskhandling.PixelMask1.convert_file(c2['OUT'], c2['OUT'][:-5]+'_mask.fits')
 
 for r in runlist:
     f(r)

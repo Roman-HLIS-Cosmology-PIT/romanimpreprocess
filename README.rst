@@ -130,3 +130,10 @@ Utilities
 The ``utils/`` folder includes some utilities that are intended to be called by the pipelines, but also that users might find useful for postprocessing, visualization, or other applications. See the `utilities page <utils/>`_ for more details.
 
 A few useful test scripts are in `tests <tests/README.rst>`_.
+
+Information for specific runs
+*********************************
+
+You can find information on specific runs we have done (or are doing) as follows. The code in these directories will be updated in the future when we build new calibration files; but it deals with specific input formats that may change (as opposed to the rest of the repository that is intended to be fully general):
+
+* Summer 2025 run (with FPT tests + OpenUniverse): `here <runs/summer2025run/>`_.

@@ -1,9 +1,20 @@
 #!/bin/bash
 #SBATCH --job-name=sim
 #SBATCH --account=PCON0003
+#SBATCH --array=1-18
 #SBATCH --time=48:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=2
+
+# use sbatch OpenUniverse_to_L1L2.job
+# array should be the SCAs you want
+# may also need to use --export=TMPDIR=... if you need to specify a temporary directory on your system
+
 cd $SLURM_SUBMIT_DIR
 cd ../../..
-python3 -m romanimpreprocess.runs.summer2025run.OpenUniverse_to_L1L2 $USE_SCA > simprocess-$USE_SCA.log
+python3 -m romanimpreprocess.runs.summer2025run.OpenUniverse_to_L1L2 \
+   --in=/fs/scratch/PCON0003/cond0007/anl-run-in-prod/truth/ \
+   --out=/fs/scratch/PCON0003/cond0007/summer2025/ \
+   --cal=/fs/scratch/PCON0003/cond0007/cal/ \
+   --tag=DUMMY20250521 --seed=500 --dseed=10 \
+   --sca=$SLURM_ARRAY_TASK_ID > simprocess-$SLURM_ARRAY_TASK_ID.log

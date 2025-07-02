@@ -1,4 +1,6 @@
 import numpy as np
+from astropy.io import fits
+import asdf
 from scipy.signal import convolve
 
 from roman_datamodels.dqflags import pixel
@@ -16,6 +18,7 @@ class CombinedMask:
     Methods:
     __init__ : constructor
     build : make boolean mask from unit32 array
+    convert_file : stand-alone function to make a mask from a file
 
     Examples:
     To take a dq array, and flag any pixel with 'gw_affected_data'
@@ -71,6 +74,23 @@ class CombinedMask:
                     mask |= convolve(2*layer,self.kerneldict[self.array[whichbit]],mode='same',method='direct')>=1
 
         return mask
+
+    def convert_file(self, file_in, file_mask):
+        """Makes a file_mask from the file_in L2 file.
+
+        If .asdf is requested, simply writes the boolean array.
+        If .fits is requested, makes a masked image (HDU0, for display purposes) and an int8 version (HDU1).
+        """
+
+        with asdf.open(file_in) as f_in:
+            locmask = self.build(f_in['roman']['dq'])
+            if file_mask[-5:]=='.asdf':
+                asdf.AsdfFile({'mask':locmask}).write_to(file_mask)
+            elif file_mask[-5:]=='.fits':
+                h1 = fits.PrimaryHDU(np.where(locmask,-1000.,f_in['roman']['data']).astype(np.float32))
+                h2 = fits.ImageHDU(np.where(locmask,1,0).astype(np.int8))
+                h2.header['EXTNAME'] = 'MASK'
+                fits.HDUList([h1,h2]).writeto(file_mask, overwrite=True)
 
 # Some specific choices you may want
 

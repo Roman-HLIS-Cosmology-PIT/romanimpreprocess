@@ -290,7 +290,6 @@ def calibrateimage(config, verbose=True):
     flat = flatutils.get_flat(caldir, meta, pdq)
     # this is the ratio of the true pixel area to the reference area (0.11 arcsec)^2
     AreaFactor = coordutils.pixelarea(riwcs.convert_wcs_to_gwcs(repackage_wcs(thewcs)), N=np.shape(slope)[-1]) / pars.Omega_ideal
-    print(AreaFactor[::1024,::1024])
     flat = (flat/AreaFactor).astype(np.float32)
     mylog.append('acquired flat field\n')
     for p in [1,2,5,10,25,50,75,90,95,98,99]:

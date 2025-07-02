@@ -462,18 +462,9 @@ class Image2D:
 
             fill_in_refdata_and_1f(im['data'], caldir, rng, rstl1.read_pattern_to_tij(read_pattern), fill_in_banding=True, amp33=amp33struct)
 
-        # get extras
-        if reffiles:
-            extras["simulate_reffiles"] = {}
-            for key, value in reffiles.items():
-                extras["simulate_reffiles"][key] = value
-        extras['simcatobj'] = simcatobj
-        extras['wcs'] = wcs.wcs_from_fits_header(self.header)
-        # convert_wcs_to_gwcs(self.galsimwcs) # <-- a GWCS object! # wcs.convert_wcs_to_gwcs(counts.wcs)
-
         # Create metadata for simulation parameter
         romanisimdict = {'version': rstversion}
-        romanisimdict.update(**extras)
+        # for storage reasons, I took out all the large metadata arrays in romanisimdict
 
         # Write file
         self.af = asdf.AsdfFile()
