@@ -80,6 +80,8 @@ The configuration is a Python dictionary (normally read from a YAML file).
 
 - ``FITSOUT``: If True, also writes a FITS output with the ``.asdf`` ending replaced with ``_asdf_to.fits``.
 
+- ``SKYORDER``: If provided, then subtracts a median-based sky model that is a 2D polynomial of the given order.
+
 A sample file would be::
 
     ---
@@ -97,6 +99,7 @@ A sample file would be::
       biascorr: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_biascorr_DUMMY20250521_SCA10.asdf'
       mask: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_mask_DUMMY20250521_SCA10.asdf'
       saturation: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_saturation_DUMMY20250521_SCA10.asdf'
+    SKYORDER: 2
     RAMP_OPT_PARS:
       slope: 0.4
       gain: 1.8
@@ -165,3 +168,8 @@ Some steps are not carried out in this code:
 * World Coordinate System determination (we read from another file, this isn't fit by this code; in this case the PIT plans to start by importing the SOC WCS solution)
 
 * absolute calibration (i.e., from flattened DN_lin/s to MJy/sr)
+
+Noise realizations
+######################
+
+*coming soon ...*

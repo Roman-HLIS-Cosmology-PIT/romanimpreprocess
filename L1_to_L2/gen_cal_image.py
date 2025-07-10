@@ -306,6 +306,19 @@ def calibrateimage(config, verbose=True):
     # blank persistence object right now
     persistence = rip.Persistence()
 
+    # sky information
+    m = maskhandling.PixelMask1.build(pdq)
+    medsky,_ = sky.smooth_mode(sky.binkxk(np.where(np.logical_not(m),slope,np.nan),4))
+    # if the configuration asks for simple subtraction, do it
+    if 'SKYORDER' in config:
+        skyorder = int(config['SKYORDER'])
+        skycoefs,skymodel = sky.medfit(slope[nb:-nb,nb:-nb], order=skyorder)
+        slope[nb:-nb,nb:-nb] -= skymodel
+        del skymodel
+    else:
+        skycoefs = np.array([]).astype(np.float32)
+        skyorder = -1 # not used
+
     im2, extras2 = rimage.make_asdf(
         slope[nb:-nb,nb:-nb]*u.DN/u.s, (slope_err_read[nb:-nb,nb:-nb]*u.DN/u.s)**2, (slope_err_poisson[nb:-nb,nb:-nb]*u.DN/u.s)**2,
         metadata=l1meta, persistence=persistence,
@@ -317,13 +330,11 @@ def calibrateimage(config, verbose=True):
     oututils.update_flags(im2, 'gen_cal_image')
     oututils.add_in_provenance(im2, 'gen_cal_image')
 
-    # sky information --- not trying to do subtraction here
-    m = maskhandling.PixelMask1.build(pdq)
-    medsky,_ = sky.smooth_mode(sky.binkxk(np.where(np.logical_not(m),slope,np.nan),4))
-
     # process information specific to this code
     processinfo = {
         'medsky': medsky,
+        'skyorder': skyorder,
+        'skycoefs': skycoefs,
         'ramp_opt_pars': uopt,
         'meta': meta,
         'weights': meta['K'],
