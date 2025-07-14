@@ -172,4 +172,53 @@ Some steps are not carried out in this code:
 Noise realizations
 ######################
 
-*coming soon ...*
+You can generate simulated noise realizations *as well as* the calibrated images with the ``gen_noise_image`` script. For example::
+
+    from romanimpreprocess.L1_to_L2 import gen_noise_image
+    with open('config.yaml') as f:
+        config = yaml.safe_load(f)
+    gen_noise_image.calibrateimage(config | {'SLICEOUT': True})
+    gen_noise_image.generate_all_noise(config)
+
+Here ``'SLICEOUT':True`` tells ``calibrateimage`` to save the information on which resultants are used to construct the slope image, so that ``generate_all_noise`` can pull from the correct distribution.
+
+You can tell ``gen_noise_image`` which noise realizations to generate by putting a ``NOISE`` block in the configuration file::
+
+  NOISE:
+    LAYER: ['RP', 'RS2']
+    TEMP: /fs/scratch/PCON0003/cond0007/MyNoise.asdf
+    SEED: 15000
+    OUT: 'sim2P_noise.asdf'
+
+Here:
+
+* ``LAYER`` is a list of which noise layers to generate (see below for the codes).
+
+* ``TEMP`` is a temporary file location (it is recommended to use the on-node temporary storage on an HPC cluster).
+
+* ``SEED`` is the random number generator seed (integer).
+
+* ``OUT`` is the location of the output file.
+
+Noise layer code system
+=========================
+
+The noise layer string (e.g., ``'RS2'``) indicates which noise elements should be included. Each command begins with a capital letter indicating the type of command, and in some cases is followed by other characters (lower case letters, numbers, underscores) that provide arguments.
+
+The types of commands are:
+
+* ``R``: Generate simulated read noise (including both white and 1/f components). These realizations are generated as 3D images (resultant,y,x) in Level 1 space and passed through the pipeline by differencing; schematically::
+
+    L1_to_L2(data_3D+simulated_noise_3D) - L1_to_L2(data_3D)
+
+* ``P``: Under construction (will generate simulated Poisson noise)
+
+* ``S``: Perform sky subtraction on the noise realizations of the given order, e.g., ``'S2'`` removes a 2nd order polynomial from the noise realization, ``'S0'`` removes a constant, etc.
+
+* ``C``: Comment (does not affect the noise generated). This can also be used to give statistically equivalent noise layers unique designations so that they can be referred to later, e.g., by PyIMCOM. So if you wanted 3 read noise layers with a constant subtracted off, you could write::
+
+    LAYER: ['RS0C0', 'RS0C1', 'RS0C2']
+
+  Of course, since this is a comment, you could also name them however you want as long as you don't use capital letters::
+
+    LAYER: ['RS0Cmickey_mouse', 'RS0Cdonald_duck', 'RS0Cgoofy']

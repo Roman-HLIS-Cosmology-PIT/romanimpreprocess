@@ -114,6 +114,7 @@ for infile in os.listdir(input_dir):
         'CALDIR': caldir,
         'RAMP_OPT_PARS': {'slope': 0.4, 'gain': 1.8, 'sigma_read': 7.},
         'JUMP_DETECT_PARS': {'SthreshA': 5.5, 'SthreshB': 4.5, 'IthreshA': 0.6, 'IthreshB': 600.},
+        'SKYORDER': 2,
         'FITSOUT': False,
         'NOISE': {
             'LAYER': ['RS2', 'RS2'],
