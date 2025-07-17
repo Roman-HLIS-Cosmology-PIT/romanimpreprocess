@@ -213,6 +213,8 @@ The types of commands are:
 
   Otherwise a "bias+noise" field is generated and processed (so no subtraction is necessary).
 
+  The noise can be clipped based on the median and interquartile range at some number of equivalent sigmas with the 'z' directive, e.g., ``'Raz4.5'`` will clip at 4.5 sigma. This is useful if you want to be able to feed another noise layer through the pipeline without re-computing the outlier mask, and thus it is recommended for use with feeding noise realizations to PyIMCOM, etc.
+
 * ``P``: Under construction (will generate simulated Poisson noise)
 
 * ``S``: Perform sky subtraction on the noise realizations of the given order, e.g., ``'S2'`` removes a 2nd order polynomial from the noise realization, ``'S0'`` removes a constant, etc.
