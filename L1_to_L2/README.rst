@@ -207,9 +207,11 @@ The noise layer string (e.g., ``'RS2'``) indicates which noise elements should b
 
 The types of commands are:
 
-* ``R``: Generate simulated read noise (including both white and 1/f components). These realizations are generated as 3D images (resultant,y,x) in Level 1 space and passed through the pipeline by differencing; schematically::
+* ``R``: Generate simulated read noise (including both white and 1/f components). These realizations are generated as 3D images (resultant,y,x) in Level 1 space. If the 'a' flag is set (``'Ra'``) then this is passed through the pipeline by differencing; schematically::
 
     L1_to_L2(data_3D+simulated_noise_3D) - L1_to_L2(data_3D)
+
+  Otherwise a "bias+noise" field is generated and processed (so no subtraction is necessary).
 
 * ``P``: Under construction (will generate simulated Poisson noise)
 

@@ -25,7 +25,7 @@ JUMP_DETECT_PARS:
 SKYORDER: 2
 FITSOUT: True
 NOISE:
-  LAYER: ['RP', 'RS2']
+  LAYER: ['R', 'Ra', 'Rz4', 'Raz4']
   TEMP: /fs/scratch/PCON0003/cond0007/MyNoise.asdf
   SEED: 15000
   OUT: 'sim2P_noise.asdf'

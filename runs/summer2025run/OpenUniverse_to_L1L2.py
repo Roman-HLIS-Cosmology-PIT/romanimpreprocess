@@ -117,7 +117,7 @@ for infile in os.listdir(input_dir):
         'SKYORDER': 2,
         'FITSOUT': False,
         'NOISE': {
-            'LAYER': ['RS2', 'RS2'],
+            'LAYER': ['Rz4S2C1', 'Rz4S2C2'],
             'TEMP': temp_dir + '/temp_{:s}_{:d}_{:d}.asdf'.format(band,obsid,sca),
             'SEED': seed,
             'OUT': output_dir + '/L2/sim_L2_{:s}_{:d}_{:d}_noise.asdf'.format(band,obsid,sca)
