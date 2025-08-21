@@ -66,7 +66,7 @@ It is also possible to include a dictionary of calibration reference files::
     ipc4d: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_ipc4d_DUMMY20250521_SCA10.asdf'
     biascorr: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_biascorr_DUMMY20250521_SCA10.asdf'
 
-(Note that some of these have additional data: see `the from_sim Readme <from_sim/README.rst>`_ for a detailed list of requirements.)
+(Note that some of these have additional data: see `the from_sim Readme <docs/from_sim_README.rst>`_ for a detailed list of requirements.)
 
 General notes
 ======================
