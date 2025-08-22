@@ -1,3 +1,13 @@
+"""
+Coordinate system utilities.
+
+Functions
+---------
+pixelarea
+    Computes pixel area from a WCS.
+
+"""
+
 import galsim
 import gwcs
 import numpy as np
@@ -5,7 +15,22 @@ from astropy.wcs import WCS
 
 
 def pixelarea(inwcs, N=4088):
-    """Generates an (N,N)-shaped array of the solid angles of the pixels."""
+    """
+    Generates an (N,N)-shaped array of the solid angles of the pixels.
+
+    Parameters
+    ----------
+    inwcs : astropy.wcs.WCS or galsim.BaseWCS or gwcs.wcs.WCS
+        The input WCS.
+    N : int, optional
+        The size of the image.
+
+    Returns
+    -------
+    np.array of float
+        The area in steradians, shape (N,N).
+
+    """
 
     sp = np.linspace(-1, N + 1, N + 2)
     xx, yy = np.meshgrid(sp, sp)

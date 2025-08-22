@@ -1,12 +1,43 @@
+"""
+Utilities needed for writing L2 data.
+
+Functions
+---------
+add_in_ref_data
+    Adds in reference pixel & output data to the given Roman structure.
+update_flags
+    Updates calibration flags. This routine should be kept current with what each type does.
+add_in_provenance
+    Adds in provenance information to a roman L2 structure.
+
+"""
+
 import asdf
 import numpy as np
 import roman_datamodels
 
 
 def add_in_ref_data(rstruct, infile, rdq, pdq):
-    """Adds in reference pixel & output data to the given Roman structure.
+    """
+    Adds in reference pixel & output data to the given Roman structure.
 
     Also populates the quality flags.
+
+    Parameters
+    ----------
+    rstruct : dict
+        Branch of L2 ASDF file.
+    infile : str
+        Name of the L1 ASDF file.
+    rdq : np.array
+        3D quality uint32 flags.
+    pdq
+        2D quality uint32 flags.
+
+    Returns
+    -------
+    None
+
     """
 
     # Reference pixel & output data copied from file
@@ -26,9 +57,22 @@ def add_in_ref_data(rstruct, infile, rdq, pdq):
 
 
 def update_flags(rstruct, ftype):
-    """Updates calibration flags. This routine should be kept current with what each
-    type does.
-    Most likely, you will call this from gen_cal_image and use that as the type.
+    """
+    Updates calibration flags. This routine should be kept current with what each `ftype` does.
+
+    Most likely, you will call this from ``gen_cal_image`` and use that as the `ftype`.
+
+    Parameters
+    ----------
+    rstruct : dict
+        Branch of L2 ASDF file.
+    ftype : str
+        Which function is updating the flags.
+
+    Returns
+    -------
+    None
+
     """
 
     cal = rstruct["meta"]["cal_step"]
@@ -44,7 +88,21 @@ def update_flags(rstruct, ftype):
 
 
 def add_in_provenance(rstruct, ftype):
-    """Adds in provenance information to a roman L2 structure."""
+    """
+    Adds in provenance information to a roman L2 structure.
+
+    Parameters
+    ----------
+    rstruct : dict
+        Branch of L2 ASDF file.
+    ftype : str
+        Which function is updating the flags.
+
+    Returns
+    -------
+    None
+
+    """
 
     if ftype.lower() == "gen_cal_image":
         rstruct["meta"]["calibration_software_name"] = roman_datamodels.stnode.CalibrationSoftwareName(

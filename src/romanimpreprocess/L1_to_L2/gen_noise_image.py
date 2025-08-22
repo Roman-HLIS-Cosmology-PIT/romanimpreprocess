@@ -1,3 +1,17 @@
+"""
+Routines to generate noise realizations.
+
+Functions
+---------
+_get_subscript
+    Helper function for parsing noise directives.
+make_noise_cube
+    Makes a noise cube; a bunch of 2D images (realization, y, x).
+generate_all_noise
+    Driver to generate noise realizations.
+
+"""
+
 import re
 import sys
 from copy import deepcopy
@@ -15,19 +29,52 @@ from .gen_cal_image import calibrateimage
 
 
 def _get_subscript(arr, ch):
-    """Helper function to take a character ch in the array, and return the string that
-    goes out to but does not include the next capital letter. e.g.:
-    _get_subscript('RS2Pg4', 'S') --> '2'
-    _get_subscript('RS2Pg4', 'P') --> 'g4'
     """
+    Helper function for parsing noise directives.
+
+    Takes a character `ch` in the array, and return the string that
+    goes out to but does not include the next capital letter. e.g.::
+
+      _get_subscript('RS2Pg4', 'S') --> '2'
+      _get_subscript('RS2Pg4', 'P') --> 'g4'
+
+    Parameters
+    ----------
+    arr : str
+        A string containing many directives separated by capital letters.
+    ch : str
+        Character that we want to subscript.
+
+    Returns
+    -------
+    str
+        The subscript of `ch`.
+
+    """
+
     return re.split(r"(?=[A-Z])", arr.split(ch)[-1])[0]
 
 
 def make_noise_cube(config, rng):
-    """Makes alternative files with extra read noise, and then differences them to return
-    a 'read noise only' slope image.
+    """
+    Noise generator.
 
-    Returns: numpy cube, size (N_noise,nside_active,nside_active)
+    Makes alternative files with extra read noise, and then differences them to return
+    a "noise only" slope image. The list of noise realizations to generate is controlled
+    by ``config["NOISE"]["LAYER"]``.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary (likely unpacked from a YAML file).
+    rng : galsim.BaseDeviate
+        Random number generator.
+
+    Returns
+    -------
+    np.array
+        The noise realizations, shape = (N_noise,nside_active,nside_active).
+
     """
 
     # The number of noise realizations we need
@@ -159,22 +206,38 @@ def make_noise_cube(config, rng):
 
 
 def generate_all_noise(config):
-    r"""Requires an additional 'NOISE' object in the configuration dictionary.
+    r"""
+    Driver for noise generation.
+
+    Parameters
+    ----------
+    config : dict
+        The configuration (usually unpacked from a YAML file).
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    This requires an additional 'NOISE' object in the configuration dictionary.
     It should have the entries:
 
-    config['NOISE']['LAYER'] : list of noise realizations to build
-    config['NOISE']['TEMP'] : temporary noise file location
-    config['NOISE']['SEED'] : random number seed for the read noise images
-    config['NOISE']['OUT'] : output of noise cube
+    * ``config['NOISE']['LAYER']`` : list of noise realizations to build
+    * ``config['NOISE']['TEMP']`` : temporary noise file location
+    * ``config['NOISE']['SEED']`` : random number seed for the read noise images
+    * ``config['NOISE']['OUT']`` : output of noise cube
 
-    Layer commands start with a capital letter, then have lower case or numerical indications.
+    Layer commands start with a capital letter, then have lower case or numerical indications:
 
-    R = include read noise
-    S\d* = subtract sky using median filter of given order
-    C... = reserved for comment (no capital letters in ...)
+    * ``R`` = include read noise
+    * ``P...`` = placeholder for Poisson noise
+    * ``S\d*`` = subtract sky using median filter of given order
+    * ``C...`` = reserved for comment (no capital letters in ...)
 
     The configuration has to have been run, since it looks for the L2 file written
-    by gen_cal_image.calibrateimage.
+    by ``gen_cal_image.calibrateimage``.
+
     """
 
     rng = galsim.UniformDeviate(config["NOISE"]["SEED"])

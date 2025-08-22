@@ -1,3 +1,15 @@
+"""
+Utilities for handling flat fields.
+
+(Recall that if we are applying an IPC operator, the flat needs to be IPC-deconvolved.)
+
+Functions
+---------
+get_flat
+    Flat field in DN units, with IPC deconvolution enabled.
+
+"""
+
 import asdf
 import numpy as np
 from roman_datamodels.dqflags import pixel
@@ -6,9 +18,27 @@ from .ipc_linearity import ipc_rev
 
 
 def get_flat(caldir, meta, pdq, ipc_deconvolve=True):
-    """Gets the flat field in DN, including IPC deconvolution if requested.
+    """
+    Gets the flat field in DN, including IPC deconvolution if requested.
 
     Pixels may be flagged if there are problems (ignored if pdq is None).
+
+    Parameters
+    ----------
+    caldir : dict
+        Locations of calibration files.
+    meta : dict
+        Metadata (must contain ``'nborder'``).
+    pdq : np.array
+        2D array, flags (pixel data quality)
+    ipc_deconvolve : bool, optional
+        Deconvolve the IPC?
+
+    Returns
+    -------
+    np.array
+        2D flat image in DN-based units.
+
     """
 
     nborder = meta["nborder"]

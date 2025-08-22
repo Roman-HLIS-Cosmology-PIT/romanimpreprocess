@@ -1,3 +1,23 @@
+"""
+Main tools to drive exposure level processing.
+
+Functions
+---------
+wcs_from_config
+    Extracts a WCS from the configuration file.
+initializationstep
+    Creates and initializes L2 data.
+saturation_check
+    Flags saturated pixels in a 3D cube.
+subtract_dark_current
+    Subtracts dark current in a 3D cube.
+repackage_wcs
+    Packages a WCS so that it can be handed to romanisim.
+calibrateimage
+    L1->L2 driver.
+
+"""
+
 import sys
 import warnings
 from copy import deepcopy
@@ -37,7 +57,22 @@ from . import oututils
 
 
 def wcs_from_config(config):
-    """Gets a WCS object from the configuration."""
+    """
+    Gets a WCS object from the configuration.
+
+    Currently supports FITS headers imported from a simulation.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary (usually imported from YAML).
+
+    Returns
+    -------
+    astropy.io.fits.header.Header
+        The WCS as a FITS header.
+
+    """
 
     if "FITSWCS" in config:
         with open(config["FITSWCS"]) as f:
@@ -48,15 +83,33 @@ def wcs_from_config(config):
 
 
 def initializationstep(config, caldir, mylog):
-    """Initialization step. Returns:
+    """
+    Initialization step.
 
-    data : 3D numpy array, data
-    rdq : 3D numpy array, flags (ramp data quality)
-    pdq : 2D numpy array, flags (pixel data quality)
-    meta : dictionary of assorted other metadata
-           (right now: frame_time and read_pattern)
-    l1meta : metadata stright from the L1 file
-    amp33 : reference output
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary (usually imported from YAML).
+    caldir : dict
+        Locations of calibration files.
+    mylog : romanimpreprocess.utils.processlog.ProcessLog
+        Processing log.
+
+    Returns
+    -------
+    data : np.array
+        3D array, science cube loaded from L1
+    rdq : np.array
+        3D array, flags (ramp data quality)
+    pdq : np.array
+        2D array, flags (pixel data quality)
+    meta : dict
+        Other metadata (right now: frame_time and read_pattern)
+    l1meta : dict
+        Metadata stright from the L1 file (copy of ASDF subtree)
+    amp33 : np.array
+        3D array, reference output loaded from L1
+
     """
 
     with asdf.open(config["IN"]) as f:
@@ -122,10 +175,33 @@ def initializationstep(config, caldir, mylog):
 
 
 def saturation_check(data, read_pattern, rdq, pdq, caldir, mylog):
-    """Performs a saturation check on the data cube (data) using the calibration files in caldir.
-    Information is appended to mylog. The flags rdq and pdq are updated in place.
+    """
+    Flags saturated pixels (in both 3D and 2D arrays).
 
-    This function serves as a wrapper for flag_saturated_pixels (imported from stcal).
+    Performs a saturation check on the data cube (`data`) using the calibration files in `caldir`.
+    Information is appended to `mylog`. The flags `rdq` and `pdq` are updated in place.
+
+    This function serves as a wrapper for ``flag_saturated_pixels`` (imported from ``stcal``).
+
+    Parameters
+    ----------
+    data : np.array
+        3D raw data cube (uint16, shape ngroup,4096,4096).
+    read_pattern : list of list of int
+        MultiAccum table.
+    rdq : np.array
+        3D ramp data quality (uint32, shape ngroup,4096,4096).
+    pdq : np.array
+        2D pixel data quality (uint32, shape 4096,4096).
+    caldir : dict
+        Locations of calibration files.
+    mylog : romanimpreprocess.utils.processlog.ProcessLog
+        Processing log.
+
+    Returns
+    -------
+    None
+
     """
 
     # passing the 0th frame will lead to division by zero, so we avoid this
@@ -158,20 +234,31 @@ def saturation_check(data, read_pattern, rdq, pdq, caldir, mylog):
 
 
 def subtract_dark_current(data, rdq, pdq, caldir, meta, mylog):
-    """Subtracts dark current from a linearized image.
+    """
+    Subtracts dark current from a linearized image.
 
-    Inputs:
-    data = 3D data cube (in DN_lin, shape ngroup,4096,4096)
-    rdq = 3D ramp data quanity (uint32, shape ngroup,4096,4096)
-    pdq = 2D pixel data quanity (uint32, shape 4096,4096)
-    caldir = calibration dictionary
-    meta = metadata
-    mylog = log object
+    The `data`, `rdq`, and `pdq` fields are updated in place.
 
-    The data, rdq, and pdq are updated in place.
+    Parameters
+    ----------
+    data : np.array
+        3D data cube (in DN_lin, shape ngroup,4096,4096)
+    rdq : np.array
+        3D ramp data quality (uint32, shape ngroup,4096,4096)
+    pdq : np.array
+        2D pixel data quality (uint32, shape 4096,4096)
+    caldir : dict
+        Locations of calibration files.
+    meta : dict
+        Metadata dictionary (from L1 ASDF tree).
+    mylog : romanimpreprocess.utils.processlog.ProcessLog
+        Processing log.
 
-    Returns:
-    dcsub = subtracted dark current in DN/s
+    Returns
+    -------
+    np.array
+        The 2D image of subtracted dark current in DN/s.
+
     """
 
     with asdf.open(caldir["dark"]) as f:
@@ -183,7 +270,25 @@ def subtract_dark_current(data, rdq, pdq, caldir, meta, mylog):
 
 
 def repackage_wcs(thewcs):
-    """Packages a WCS to feed to romanisim."""
+    """
+    Packages a WCS to feed to romanisim.
+
+    Right now supports FITS-standard headers from a simulation.
+    Since this for compatibility in ramp-fitting routines, can use this
+    and overwrite the WCS in the L2 ASDF tree with a full-accuracy gwcs
+    at a later stage.
+
+    Parameters
+    ----------
+    thewcs : astropy.io.fits.Header or galsim.CelestialWCS
+        Input WCS.
+
+    Returns
+    -------
+    class
+        Packaged WCS, 2 layers deep for compatibility with romanisim.
+
+    """
 
     # make WCS --- a few ways of doing this
     while True:
@@ -219,10 +324,19 @@ def repackage_wcs(thewcs):
 
 
 def calibrateimage(config, verbose=True):
-    """Main routine to run the specified calibrations from a config file.
+    """
+    Main routine to run the specified calibrations from a config file.
 
-    The config is a dictionary intended to be read from a YAML file, though it could also be
-    written/edited here.
+    Parameters
+    ----------
+    config : dict
+        Configuration (likely unpacked from a YAML file).
+    verbose : bool, optional
+        Whether to print lots of intermediate stuff to the terminal.
+
+    Returns
+    -------
+    None
 
     """
 

@@ -1,4 +1,16 @@
-"""Utilities for simple sky estimation."""
+"""
+Utilities for simple sky estimation.
+
+Functions
+---------
+binkxk
+    Bin-averaging utility for 2D array, kxk.
+smooth_mode
+    Find the mode of the smoothed histogram.
+medfit
+    Fits a low-order polynomial to a 2D array.
+
+"""
 
 import numpy as np
 import scipy.stats
@@ -6,7 +18,23 @@ from scipy.special import legendre_p
 
 
 def binkxk(arr, k):
-    """Bin-averaging utility for 2D array, kxk"""
+    """
+    Bin-averaging utility for 2D array, kxk.
+
+    Parameters
+    ----------
+    arr : np.array
+        2D array
+    k : int
+        Bin every `k` pixels on both axes.
+
+    Returns
+    -------
+    np.array of float
+        2D array, reduced by a factor of `k` on each axis.
+        The "remainder" pixels (if any) are ignored.
+
+    """
 
     (ny, nx) = np.shape(arr)
     nyo = ny // k
@@ -16,22 +44,27 @@ def binkxk(arr, k):
 
 
 def smooth_mode(arr, pc=25.0, pksmooth=0.5, niter=3):
-    """Find the mode of the histogram of arr.
+    """
+    Find the mode of the smoothed histogram.
 
-    Inputs
-    -------
-    arr : the numpy array
-    pc : (optional, default=25.) percentile cut for the histogram
-    pksmooth : (optional, default=0.5) number of sigmas to smooth
-    niter : (optional, default=3) number of peak-finding iterations
+    Ignores nans.
+
+    Parameters
+    ----------
+    arr : np.array
+        The image from which we want to take the mode.
+    pc : float, optional
+        Percentile cut for the histogram.
+    pksmooth : float, optional
+        Number of sigmas to smooth.
+    niter : int, optional
+        Number of peak-finding iterations.
 
     Returns
     --------
-    (best fit mode, width of weighting function)
+    (float, float)
+        Best fit mode and width of weighting function.
 
-    Comments
-    --------
-    Ignores nans
     """
 
     # initial setup of the center and sigma of the distribution
@@ -61,30 +94,45 @@ def smooth_mode(arr, pc=25.0, pksmooth=0.5, niter=3):
 
 
 def medfit(arr, N=8, order=2):
-    """Fits a low-order polynomial to a 2D array.
+    """
+    Fits a low-order polynomial to a 2D array.
 
     Inputs
     -------
-    arr : 2D numpy array
-    N : (optional) regions to break into on each dimension
-    order : order of polynomial to fit
+    arr : np.array
+        The 2D image.
+    N : int, optional
+        Number of regions to break into on each dimension
+        (so total is N^2).
+    order : int, optional
+        Order of polynomial to fit.
 
     Returns
-    --------
-    coef : polynomial coefficients (numpy array)
-    arrmed : fit to the median (numpy array, same shape as arr)
+    -------
+    coef : np.array
+        The flattened array of polynomial coefficients (see Notes for ordering).
+    arrmed : np.array
+        The fit to the median (same shape as `arr`).
 
-    Comments
-    ---------
-    arrmed[y,x] = sum coef_ij P_i(u) P_j(v) where u = 2*x/nx-1, v = 2*y/ny-1
-    (so u and v are scaled to -1 .. +1)
-    coef ordering is:
-    0,0   0,1   0,2   ...   0,order-1   0,order
-    1,0   1,1   1,2   ...   1,order-1
-    ...
-    order,0
+    Notes
+    -----
+    The polynomial fit is of the form (in pseudocode)::
 
-    total number of coefficients is (order+1)*(order+2)//2
+      u = 2*x/nx-1
+      v = 2*y/ny-1
+      arrmed[y,x] = sum coef_ij P_i(u) P_j(v)
+
+    (so u and v are scaled to the range -1 to +1).
+
+    The ordering in `coef` is::
+
+      0,0   0,1   0,2   ...   0,order-1   0,order
+      1,0   1,1   1,2   ...   1,order-1
+      ...
+      order,0
+
+    The total number of coefficients is ``(order+1)*(order+2)//2``.
+
     """
 
     # get indices for the center, as close as we can get
@@ -139,4 +187,5 @@ def medfit(arr, N=8, order=2):
             arrmed += x[k] * np.outer(LPY[j, :], LPX[i, :])
             k += 1
 
-    return x, arrmed.astype(arr.dtype)
+    coef = x
+    return coef, arrmed.astype(arr.dtype)

@@ -1,6 +1,33 @@
-"""Functions to convert external simulated images to Roman L1/L2-like format.
+"""
+Functions to convert external simulated images to Roman L1/L2-like format.
 
 This works entirely at the single exposure level. Some parts wrap romanisim.
+
+Functions
+---------
+hdu_sip_hflip
+    Flips an SCA in the 3n row in Detector coordinates to align with Science coordinates.
+hdu_sip_vflip
+    Flips an SCA in the 3n+1 or 3n+2 rows in Detector coordinates to align with Science coordinates.
+make_l1_fullcal
+    Makes an L1 image using an OpenUniverse input and the calibration data.
+    (Merges with romanisim routines.)
+noise_1f_frame
+    Generates 1/f noise.
+fill_in_refdata_and_1f
+    Fills in reference pixels and reference output, as well as 1/f noise.
+simpletest
+    Quick look tool for Level 1 to Level 2 conversion (not for production).
+runconfig
+    Configuration-driven function to convert a simulation to Level 1 format.
+
+Classes
+-------
+Image2D
+    2D image (may be from simulation).
+Image2D_from_L1
+    2D image from Level 1 data (useful for 'shortcut' workflow, for most applications use L1_to_L2).
+
 """
 
 import copy
@@ -32,7 +59,27 @@ from ..utils.ipc_linearity import IL, ipc_rev
 
 
 def hdu_sip_hflip(data, header):
-    """Horizontal flip of SCA and WCS. Assumes SIP convention."""
+    """
+    Horizontal flip of SCA and WCS. Assumes SIP convention.
+
+    This function operates on the data and WCS header in place.
+
+    Parameters
+    ----------
+    data : np.array
+        2D image of an SCA.
+    header : astropy.io.fits.header.Header
+        Header containing the WCS.
+
+    Returns
+    -------
+    None
+
+    See Also
+    --------
+    hdu_sip_vflip : Similar, but for vertical flip instead.
+
+    """
 
     (ny, nx) = np.shape(data)
     data[:, :] = data[:, ::-1]  # flipping the data is the easy part
@@ -62,7 +109,27 @@ def hdu_sip_hflip(data, header):
 
 
 def hdu_sip_vflip(data, header):
-    """Vertical flip of SCA and WCS. Assumes SIP convention."""
+    """
+    Vertical flip of SCA and WCS. Assumes SIP convention.
+
+    This function operates on the data and WCS header in place.
+
+    Parameters
+    ----------
+    data : np.array
+        2D image of an SCA.
+    header : astropy.io.fits.header.Header
+        Header containing the WCS.
+
+    Returns
+    -------
+    None
+
+    See Also
+    --------
+    hdu_sip_hflip : Similar, but for horizontal flip instead.
+
+    """
 
     (ny, nx) = np.shape(data)
     data[:, :] = data[::-1, :]  # flipping the data is the easy part
@@ -92,16 +159,26 @@ def hdu_sip_vflip(data, header):
 
 
 def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, tstart=None):
-    """Make an L1 image with the full calibration information.
+    """
+    Make an L1 image with the full calibration information.
 
     This carries out similar steps to romanisim.l1.make_l1, but
-    provides us a bit more control over the settings..
+    provides us a bit more control over the settings.
 
-    counts  galsim.Image object (mean e per pixel)
-    read_pattern  list[list] (MA table)
-    caldir dictionary (with the reference files)
-    rng  galsim.BaseDeviate
-    persistence  romanisim.persistence.Persistence
+    Parameters
+    ----------
+    counts : galsim.Image
+        Contains mean number electrons per pixel per exposure.
+    read_pattern : list of list of int
+        MultiAccum table.
+    caldir : dict
+        Dictionary of the reference files.
+    rng : galsim.BaseDeviate, optional
+        The random number generator.
+    persistence : romanisim.persistence.Persistence, optional
+        Persistence object, not used yet.
+    tstart : float, optional
+        Start time to feed to romanisim.
 
     Returns
     -------
@@ -109,6 +186,7 @@ def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, ts
         3D image array
     dq : np.array
         3D quality array
+
     """
 
     # generate the reset noise (will complain if rng is None!)
@@ -183,7 +261,23 @@ def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, ts
 
 
 def noise_1f_frame(rng):
-    """Generates a 4096x128 block of 1/f noise."""
+    """
+    Generates a 4096x128 block of 1/f noise.
+
+    The frame is normalized to variance of 1 per logarithmic range in frequency,
+    i.e., S(f) = 1/f, where Var X = int_0^infty S(f) df.
+
+    Parameters
+    ----------
+    rng : galsim.BaseDeviate
+        The random number generator.
+
+    Returns
+    -------
+    np.array of float
+        Shape (4096,128).
+
+    """
 
     len = 2 * pars.nside * pars.channelwidth
 
@@ -208,15 +302,34 @@ def noise_1f_frame(rng):
 
 
 def fill_in_refdata_and_1f(im, caldir, rng, tij, fill_in_banding=True, amp33=None):
-    """Script to fill in the reference pixel data in an image.
-    If amp33 is provided, then also tries to fill that in (provides a warning if not).
+    """
+    Fills in the reference pixel data in an image, and adds 1/f noise.
 
-    im = the image data cube
-    caldir = the calibration dictionary
-    rng = random number generator
-    tij = which reads to use
-    nborder = number of reference pixels around the border
-    fill_in_banding = also add 1/f noise?
+    If `amp33` is provided, then also tries to fill in the reference output
+    (if the calibration reference files have that information).
+
+    Noise is added in-place to `im` and (if provided) `amp33`, keeping the same
+    data type.
+
+    Parameters
+    ----------
+    im : np.array
+        The image data cube. Shape (ngrp, ny, nx).
+    caldir : dict
+        The dictionary of calibration reference files.
+    rng : galsim.BaseDeviate
+        The random number generator.
+    tij : list of list of float
+        Time stamps of the reads in seconds.
+    fill_in_banding : bool, optional
+        Whether to gennerate 1/f noise.
+    amp33 : np.array, optional
+        If provided, array to put the reference output.
+
+    Returns
+    -------
+    None
+
     """
 
     (ngrp, ny, nx) = np.shape(im)  # get shape
@@ -287,43 +400,84 @@ def fill_in_refdata_and_1f(im, caldir, rng, tij, fill_in_banding=True, amp33=Non
 
 
 class Image2D:
-
-    """This class has a 2D image, along with WCS and sky information.
+    """
+    2D image, along with WCS and sky information.
 
     It can be constructed from simulations or (ultimately) from Roman data.
 
-    Attributes:
-    image : the 2D image
-    galsimwcs : the world coordinate system for this image
-    header : the world coordinate system for this image in FITS WCS format
-    date : the observation date
-    filter : the observation filter (4 characters, e.g., R062)
-    idsca : ordered pair, (obs ID, SCA)
-    ra_, dec_, pa_ : coordinates of the observation
-    af, af2 : Level 1 & Level 2 files
-    refdata : reference data
+    Parameters
+    ----------
+    intype : str
+        Input type (e.g., "anlsim")
 
-    Methods:
-    __init__ : constructor
-    init_anlsim : constructor from Open Universe simulation file.
-    simulate : simulates the ramps, including L1 and L2 data.
-    L1_write_to : write simulated L1 data file (ASDF)
-    L2_write_to : write simulated L2 data file (ASDF)
+    Attributes
+    ----------
+    image : np.array of flat
+        A 2D image. Units are e/p/s if generated from a simulation in e.
+    galsimwcs : galsim.wcs.CelestialWCS
+        The world coordinate system for this image.
+    header : astropy.io.fits.header.Header
+        The world coordinate system for this image in FITS WCS format.
+    date : str
+        The observation date (ISO 8601 string).
+    filter : str
+        The observation filter (4 characters, e.g., R062).
+    idsca : (int, int)
+        The observation ID and SCA.
+    ra_ : float
+        Right ascension (in degrees) of the WFI.
+    dec_ : float
+        Declination (in degrees) of the WFI.
+    pa_ : float
+        Position angle (in degrees) of the WFI.
+    refdata : dict
+        Reference data locations.
+    af : asdf.AsdfFile
+        Level 1 data
+    af2 : asdf.AsdfFile
+        Level 2 data
+
+    Methods
+    -------
+    __init__
+        Constructor
+    init_anlsim
+        Constructor from Open Universe simulation file.
+    simulate
+        Simulates the ramps, including L1 and L2 data.
+    L1_write_to
+        Write simulated L1 data file (ASDF)
+    L2_write_to
+        Write simulated L2 data file (ASDF)
+
+    Notes
+    -----
+    The legal `intype` strings are:
+
+    * ``anlsim`` : The Open Universe 2024 simulation "truth" (or equivalent)
+
     """
 
     def __init__(self, intype, **kwargs):
-        """Wrapper for possible ways to build a 2D image.
-
-        Possible input types:
-        anlsim : from Open Universe 2024 simulation "truth" (or equivalent format)
-        """
-
         if intype == "anlsim":
             self.init_anlsim(kwargs["fname"])
 
     def init_anlsim(self, fname, flip=True):
-        """If flip is True, then flips from SCA native coordinates to science-aligned
-        (SOC-like product).
+        """
+        Constructor from Open Universe 2024-type simulation.
+
+        Parameters
+        ----------
+        fname : str
+            The input file name.
+        flip : bool, optional
+            If True, then flips from SCA native coordinates to science-aligned
+            (SOC-like product).
+
+        Returns
+        -------
+        None
+
         """
 
         # get (id,sca)
@@ -361,11 +515,28 @@ class Image2D:
         self.pa_ = float(self.header["PA_OBSY"])
 
     def simulate(self, use_read_pattern, caldir=None, config={}, seed=43):
-        """This is based on the romanisim.image.simulate function,
+        """
+        Performs Level 1 & 2 simulations.
+
+        This is based on the ``romanisim.image.simulate`` function,
         but some functionality has been changed to be useful for this class.
 
-        The "caldir" is a dictionary of where the calibration files are
-        located.
+        Parameters
+        ----------
+        use_read_pattern : list of list of int
+            The MultiAccum table.
+        caldir : dict, optional
+            Dictionary of where the calibration files are located.
+            (Otherwise uses internal defaults, only good for testing.)
+        config : dict, optional
+            Configuration file (usually expanded from YAML).
+        seed : int, optional
+            Random number seed.
+
+        Returns
+        -------
+        None
+
         """
 
         target_pattern = 1000000
@@ -573,9 +744,20 @@ class Image2D:
         self.refdata = refdata
 
     def L1_write_to(self, filename):
-        """Writes to a file if there is an ASDF file present.
-        Returns True if successful, False if not written.
         """
+        Writes L1 data to a file if available.
+
+        Parameters
+        ----------
+        filename : str
+            Where to write the file (should end with ``.asdf``).
+
+        Returns
+        -------
+        bool
+            True if successful, False if not written.
+        """
+
         if hasattr(self, "af"):
             with open(filename, "wb") as f:
                 self.af.write_to(f)
@@ -583,9 +765,20 @@ class Image2D:
             return False
 
     def L2_write_to(self, filename):
-        """Writes to a file if there is an ASDF file present.
-        Returns True if successful, False if not written.
         """
+        Writes L2 data to a file if available.
+
+        Parameters
+        ----------
+        filename : str
+            Where to write the file (should end with ``.asdf``).
+
+        Returns
+        -------
+        bool
+            True if successful, False if not written.
+        """
+
         if hasattr(self, "af2"):
             with open(filename, "wb") as f:
                 self.af2.write_to(f)
@@ -700,7 +893,8 @@ class Image2D_from_L1(Image2D):
 
 
 def simpletest():
-    """This is a simple script to convert Roman to L1/L2.
+    """
+    This is a simple script to convert Roman to L1/L2.
     For internal testing only, not production.
     """
 
@@ -746,8 +940,19 @@ def simpletest():
 
 
 def run_config(config):
-    """This allows the L1 image construction to be called as a Python function instead of a
+    """
+    This allows the L1 image construction to be called as a Python function instead of a
     stand-alone code.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration file (usually a dictionary unpacked from YAML).
+
+    Returns
+    -------
+    None
+
     """
 
     # calibration files

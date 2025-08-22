@@ -1,33 +1,63 @@
+"""
+Utility functions for ramp fitting.
+
+Functions
+---------
+construct_weights
+    Makes a numpy array of weights for slope fitting.
+jump_detect
+    Searches for a jump.
+ramp_fit
+    Ramp fitting.
+
+"""
+
 import asdf
 import numpy as np
 from roman_datamodels.dqflags import pixel
 
-"""Utility functions for ramp fitting."""
-
 
 def construct_weights(u, meta, exclude_first=True):
-    """Makes a numpy array of weights for slope fitting.
+    """
+    Makes a numpy array of weights for slope fitting.
 
-    These are optimized for a ratio of:
-    u = flux / (gain * read_noise_variance)
-    units are: [DN/s] / ([e/DN] * [DN^2]) = 1/(e*s)
+    Parameters
+    ----------
+    u : float
+        Poisson to read noise ratio, unit: 1/(e*s).
+    meta : dict
+        Metadata for setting the weights.
+    exclude_first : bool, optional
+        Whether to exclude the first read (this is because the reset-read frame
+        is sometimes hard to calibrate).
 
-    The "meta" dictionary should contain:
-    * ngrp = number of groups
-    * N = array, number of frames in each group
-    * tbar = array, mean time since reset of each group
-    * tau = array, variance-weighted time since reset of each group
+    Returns
+    -------
+    K : np.array of float
+        The weight vector; length is the number of groups (``meta['ngrp']``).
 
-    The first read can be excluded (this is because the reset-read frame
-    is sometimes hard to calibrate).
+    Notes
+    -----
+    These are optimized for a ratio of u = flux / (gain * read_noise_variance).
+    The units are: [DN/s] / ([e/DN] * [DN^2]) = 1/(e*s).
+
+    The `meta` dictionary should contain:
+    * ``'ngrp'`` : int
+      Number of groups
+    * ``'N'`` : np.array of int
+      Number of frames in each group
+    * ``'tbar'`` : np.array of float
+      Mean time since reset of each group
+    * ``'tau'`` : np.array of float
+      Variance-weighted time since reset of each group
 
     This follows the notation and optimization of Casertano et al. (2022),
     except that we don't use the adaptive aspect of the algorithm.
 
-    Returns:
-    K = array of weights (should sum to 0)
+    The returned array `K` is intended to be used in computing a slope,
+    sum_i K_i R_i (in DN/s).
+    The weights should sum to 0 so that we aren't sensitive to the reset level.
 
-    so that fhat = sum K_i R_i (in DN/s)
     """
 
     K = np.zeros(meta["ngrp"])
@@ -57,38 +87,70 @@ def construct_weights(u, meta, exclude_first=True):
 
 
 def jump_detect(data, rdq, pdq, meta, caldir, mylog, exclude_first=True, truncate_ramp=None):
-    """Searches for a jump.
+    """
+    Searches for a jump.
 
+    Note that affected pixels are only flagged by this function: they are not corrected!
+
+    Parameters
+    ----------
+    data : np.array
+        The input data in DN, shape = (ngrp,ny,nx).
+    rdq : np.array
+        3D array, flags (ramp data quality)
+    pdq : np.array
+        2D array, flags (pixel data quality)
+    meta : dict
+        Other metadata (right now: frame_time and read_pattern)
+    caldir : dict
+        Locations of calibration files.
+    mylog : romanimpreprocess.utils.processlog.ProcessLog
+        Processing log.
+    exclude_first : bool, optional
+        Exclude the first sample?
+    truncate_ramp : int or None, optional
+        If given, truncates the ramp at this sample (useful for saturated pixels).
+
+    Returns
+    -------
+    slope : np.array
+        Slope image (2D, DN/s).
+    slope_err_read : np.array
+        Slope error image from read noise (2D, DN/s).
+    slope_err_poisson : np.array
+        Slope error image from Poisson noise (2D, DN/s).
+    smap : np.array
+        3D jump significance cube, dimensionless (axes: difference, y, x).
+
+    Notes
+    -----
     Data operated on is in the cube data (ngrp,ny,nx); and the uint32 flags are in
     rdq (ngrp,ny,nx) and pdq (ny,nx).
 
-    The "meta" dictionary contains at least ngrp, N, tbar, tau, K;
-    and exclude_first drops the 0th frame, just as for construct_weights.
-    (Note K ususally comes from construct_weights.)
+    The `meta` dictionary contains at least:
 
-    There is a 'truncate_ramp' option that forces the ramp to end at truncgroup (useful
-    for saturated pixels).
+    * ``'ngrp'`` : int
+      Number of groups
+    * ``'N'`` : np.array of int
+      Number of frames in each group
+    * ``'tbar'`` : np.array of float
+      Mean time since reset of each group
+    * ``'tau'`` : np.array of float
+      Variance-weighted time since reset of each group
+    * ``'K'`` : np.array
+      1D weight vector, ususally comes from construct_weights.
 
-    If "meta" contains "jump_detect_pars", then this can override the default
+    If `meta` contains "jump_detect_pars", then this can override the default
     settings in the algorithm.
 
-    The cube is in DN, slope in DN/s, and gain in e/DN.
+    The gain is read from `caldir`, and is in e/DN.
 
-    The current version implements the Sharma & Casertano (2024) flagging algorithm.
+    The current version implements the Sharma & Casertano (2024) flagging algorithm
+    except for fitting the weights.
 
     See: Sanjib Sharma and Stefano Casertano 2024 PASP 136 054504
     DOI 10.1088/1538-3873/ad4b9e
 
-    Note that affected pixels are only flagged by this function: they are not corrected!
-
-    The significance cube for detections is returned; the calling function may choose
-    to use this or not.
-
-    Returns:
-    slope = slope image (2D, DN/s)
-    slope_err_read = ***
-    slope_err_poisson = ***
-    smap = jump significance cube (axes: difference, y, x)
     """
 
     # get basic information
@@ -193,12 +255,55 @@ def jump_detect(data, rdq, pdq, meta, caldir, mylog, exclude_first=True, truncat
 
 
 def ramp_fit(data, rdq, pdq, meta, caldir, mylog, exclude_first=True):
-    """Ramp fitting.
+    """
+    Ramp fitting.
 
     Note that the slope image still fits objects that saturate during the exposure, since
     the same bright stars will keep saturating and we don't want to keep masking them. But
     for CR hits on unsaturated objects we want to reject that exposure, since the ePSF may
     be different due to jitter.
+
+    Parameters
+    ----------
+    data : np.array
+        The input data in DN, shape = (ngrp,ny,nx).
+    rdq : np.array
+        3D array, flags (ramp data quality)
+    pdq : np.array
+        2D array, flags (pixel data quality)
+    meta : dict
+        Other metadata (right now: frame_time and read_pattern)
+    caldir : dict
+        Locations of calibration files.
+    mylog : romanimpreprocess.utils.processlog.ProcessLog
+        Processing log.
+    exclude_first : bool, optional
+        Exclude the first sample?
+
+    Returns
+    -------
+    slope : np.array
+        Slope image (2D, DN/s).
+    slope_err_read : np.array
+        Slope error image from read noise (2D, DN/s).
+    slope_err_poisson : np.array
+        Slope error image from Poisson noise (2D, DN/s).
+
+    Notes
+    -----
+    The `meta` dictionary contains at least:
+
+    * ``'ngrp'`` : int
+      Number of groups
+    * ``'N'`` : np.array of int
+      Number of frames in each group
+    * ``'tbar'`` : np.array of float
+      Mean time since reset of each group
+    * ``'tau'`` : np.array of float
+      Variance-weighted time since reset of each group
+    * ``'K'`` : np.array
+      1D weight vector, ususally comes from construct_weights.
+
     """
 
     loc_rdq = np.zeros_like(rdq)  # local copy since which pixels we want to flag will depend on saturation

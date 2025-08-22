@@ -1,38 +1,61 @@
+"""
+Tools for building a mask by growing the input bitmask by different amounts.
+
+Classes
+-------
+CombinedMask
+    Class to generate a boolean mask from multiple flags.
+
+"""
+
+
 import asdf
 import numpy as np
 from astropy.io import fits
 from roman_datamodels.dqflags import pixel
 from scipy.signal import convolve
 
-"""Tools for building a mask by growing the input bitmask by
-different amounts.
-"""
-
 
 class CombinedMask:
-    """Class to generate a boolean mask.
+    """
+    Class to generate a boolean mask from multiple flags.
 
-    Attributes:
-    array : dictionary of how much to grow each flag.
+    Parameters
+    ----------
+    maskdict : dict
+        A dictionary of how much to grow each flag (see notes for description).
 
-    Methods:
-    __init__ : constructor
-    build : make boolean mask from unit32 array
-    convert_file : stand-alone function to make a mask from a file
+    Attributes
+    ----------
+    array : dict
+        Dictionary of how much to grow each flag.
 
-    Examples:
-    To take a dq array, and flag any pixel with 'gw_affected_data'
-    and the cardinal-nearest neigbors if 'jump_det' is set:
+    Methods
+    -------
+    __init__
+        Constructor.
+    build
+        Make boolean mask from a data quality array.
+    convert_file
+        Stand-alone function to make a mask from a file.
 
-    myMaskFunc = CombinedMask({'jump_det': 5, 'gw_affected_data': 1})
-    mymask = myMaskFunc.build(dq)
+    Notes
+    -----
+    To take a dq array, and flag any pixel with ``'gw_affected_data'``
+    and the cardinal-nearest neigbors if ``'jump_det'`` is set::
 
-    (Note that capitalization is automatic so this function is not case-sensitive.)
+        myMaskFunc = CombinedMask({'jump_det': 5, 'gw_affected_data': 1})
+        mymask = myMaskFunc.build(dq)
+
+    The mask names are as described in ``roman_datamodels.dqflags.pixel``.
+    Note that capitalization is automatic so this function is not case-sensitive.
 
     Options for growing are specified by the number of pixels affected:
-     1 = that pixel
-     5 = cardinal nearest neighbors
-     9 = 3x3 block
+    * 1 = that pixel
+    * 5 = cardinal nearest neighbors
+    * 9 = 3x3 block
+    * 25 = 5x5 block
+
     """
 
     # Kernel dictionary is a class variable
@@ -43,7 +66,6 @@ class CombinedMask:
     }
 
     def __init__(self, maskdict):
-        """Constructor function from a dictionary."""
         self.array = np.zeros(32, dtype=np.uint8)
         for d in maskdict:
             if isinstance(d, int):
@@ -58,7 +80,20 @@ class CombinedMask:
             self.array[whichbit] = int(maskdict[d])
 
     def build(self, dq):
-        """Make a boolean mask from a dq array (True = masked)."""
+        """
+        Make boolean mask from a data quality array.
+
+        Parameters
+        ----------
+        dq : np.array of uint32
+            2D data quality array.
+
+        Returns
+        -------
+        np.array of bool
+            Grown mask; True indicates a masked pixel, False a normal pixel.
+
+        """
 
         (ny, nx) = np.shape(dq)
         mask = np.zeros((ny, nx), dtype=bool)
@@ -82,10 +117,25 @@ class CombinedMask:
         return mask
 
     def convert_file(self, file_in, file_mask):
-        """Makes a file_mask from the file_in L2 file.
+        """
+        Stand-alone function to make a mask from a file.
 
-        If .asdf is requested, simply writes the boolean array.
-        If .fits is requested, makes a masked image (HDU0, for display purposes) and an int8 version (HDU1).
+        The type of output depends on the `file_mask` extension:
+        * If .asdf is requested, simply writes the boolean array.
+        * If .fits is requested, makes a masked image (HDU0, for display purposes)
+          and an int8 version (HDU1).
+
+        Parameters
+        ----------
+        file_in : str
+            The input ASDF file, in L2 format.
+        file_mask : str
+            The output file.
+
+        Returns
+        -------
+        None
+
         """
 
         with asdf.open(file_in) as f_in:

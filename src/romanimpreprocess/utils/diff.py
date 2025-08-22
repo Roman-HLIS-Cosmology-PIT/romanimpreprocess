@@ -1,3 +1,5 @@
+"""Image differencing utility, for visualization."""
+
 import sys
 
 import asdf

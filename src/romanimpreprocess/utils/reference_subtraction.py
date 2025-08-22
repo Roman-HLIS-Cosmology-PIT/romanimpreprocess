@@ -1,25 +1,45 @@
+"""
+Simple reference subtraction utilities.
+
+Functions
+---------
+ref_subtraction_channel
+    Channel-based reference subtraction.
+ref_subtraction_row
+    Row-based reference subtraction.
+
+"""
+
 import numpy as np
 
 
 def ref_subtraction_channel(image, channel_start=0, channel_end=128, use_ref_channel=False):
     """
+    Channel-based reference subtraction.
+
     Performs a simple channel-wise reference pixel subtraction on the slopes image.
     Calculates a linear fit to the median pixel values at the top and bottom of each channel,
     and subtracts the fitted line from each column in the channel.
 
-    Parameters:
-    image
-        a 2D numpy array representing the slopes image.
-    channel_start
-        The starting index for the first channel (default is 0).
-    channel_end
-        The ending index for the first channel (default is 128).
-    use_ref_channel
-        bool, whether to use "channel 33"
+    The image is updated in place; the updated image is also the return value.
 
-    Output:
-    image:  2D numpy array with the reference pixel values subtracted from each column in each channel.
-    The image is expected to have 33 channels, each with 128 columns.
+    Parameters
+    ----------
+    image : np.array
+        a 2D numpy array representing the slopes image.
+    channel_start : int, optional
+        The starting index for the first channel.
+    channel_end : int, optional
+        The ending index for the first channel.
+    use_ref_channel : bool, optional
+        Whether to use the reference output.
+
+    Returns
+    -------
+    image : np.array
+        A 2D numpy array with the reference pixel values subtracted from each column in each channel.
+        The image is expected to have 33 channels, each with 128 columns.
+
     """
     # Define beginning and ending indices for the first channel as an initial starting point
     n_channels = 32
@@ -56,19 +76,25 @@ def ref_subtraction_channel(image, channel_start=0, channel_end=128, use_ref_cha
 
 def ref_subtraction_row(image, use_ref_channel=False):
     """
+    Row-based reference subtraction.
+
     Performs a simple row-wise reference pixel subtraction on the slopes image.
     Fits active-region median as a funciton of reference-region median, subtracts the
     fitted median from each row.
 
-    Parameters:
-    image
-        a 2D numpy array representing the slopes image.
-    use_ref_channel : bool
-        whether to use "channel 33" for fitting
+    The image is updated in place; the updated image is also the return value.
 
-    Output:
+    Parameters
+    ----------
     image : np.array
-        a 2D numpy array with the reference pixel values subtracted from each row.
+        A 2D numpy array representing the slopes image.
+    use_ref_channel : bool, optional
+        Whether to use the reference output for fitting.
+
+    Returns
+    -------
+    image : np.array
+        A 2D numpy array with the reference pixel values subtracted from each row.
 
     """
 

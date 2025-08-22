@@ -1,3 +1,5 @@
+"""Visualization script."""
+
 import sys
 
 import asdf

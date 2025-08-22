@@ -1,22 +1,75 @@
+"""
+IPC and linearity utilities.
+
+Classes
+-------
+IL
+    IPC+Inverse linearity class.
+
+Functions
+---------
+ipc_fwd
+    Carries out an IPC operation on the image.
+ipc_rev
+    Inverse IPC operation, to the given order.
+correct_cube
+    IPC corrects a full data cube (data) in place.
+_lin
+    Helper function to evaluate Legendre-based function.
+linearity
+    Performs a linearity correction.
+multilin
+    Performs a linearity correction, but with multiple groups.
+invlinearity
+    Calculates the inverse linearity. (This is most likely to be used in simulations.)
+test__lin
+    Simple test function for _lin.
+test_lin_ilin
+    Forward-backward test for linearity routines.
+test_IL
+    Some tests for the inverse linearity class.
+
+"""
+
 import sys
 
 import asdf
 import numpy as np
 from roman_datamodels.dqflags import pixel
 
-"""IPC utilities"""
+## IPC utilities ##
 
 
 def ipc_fwd(image, kernel, gain=None):
-    """Carries out an IPC operation on the image.
+    """
+    Carries out an IPC operation on the image.
 
-    image should be a 2D numpy array of size (ny,nx)
-    kernel should be a 4D numpy array of size (3,3,ny,nx)
+    Parameters
+    ----------
+    image : np.array
+        2D numpy array of size (ny,nx).
+    kernel : np.array
+        4D numpy array of size (3,3,ny,nx).
+    gain : np.array or None, optional
+        If not None, the input gain map (in e/DN).
 
-    This returns a 2D numpy array:
-    output[y,x] = sum_{dy,dx} input[y-dy,x-dx] kernel[1+dy,1+dx,y-dy,x-dx]
+    Returns
+    -------
+    output : np.array
+        2D numpy array, same shape as `image`, IPC-convolved.
 
-    Natively works in e, but if gain is provided then works in DN (does g^-1 K g).
+    See Also
+    --------
+    ipc_rev : Inverse function.
+
+    Notes
+    -----
+    The output image, in psuedocode, is::
+
+        output[y,x] = sum_{dy,dx} input[y-dy,x-dx] kernel[1+dy,1+dx,y-dy,x-dx]
+
+    This function natively works in electrons, but if gain is provided then works in DN (does g^-1 K g).
+
     """
 
     im = image
@@ -53,11 +106,35 @@ def ipc_fwd(image, kernel, gain=None):
 
 
 def ipc_rev(image, kernel, order=2, gain=None):
-    """Inverse operation of ipc_fwd to the given order.
-    Grows the footprint of each pixel to (2*order+1,2*order+1).
+    """
+    Inverse IPC operation, to the given order.
 
-    If gain is provided, then does g^-1 K^-1 g image instead of K^-1 image.
+    Grows the footprint of each pixel to ``(2*order+1,2*order+1)``.
+
+    If `gain `is provided, then does g^-1 K^-1 g image instead of K^-1 image.
     (Equivalent: operate on DN instead of e.)
+
+    Parameters
+    ----------
+    image : np.array
+        2D numpy array of size (ny,nx).
+    kernel : np.array
+        4D numpy array of size (3,3,ny,nx).
+    order : int, optional
+        The order of IPC inversion; default is 2nd order (correct to next-to-next-to-neighbor
+        pixel). Error is of order ``alpha**(order+1)``.
+    gain : np.array or None, optional
+        If not None, the input gain map (in e/DN).
+
+    Returns
+    -------
+    output : np.array
+        2D numpy array, same shape as `image`, IPC-convolved.
+
+    See Also
+    --------
+    ipc_fwd : Forward function.
+
     """
 
     image2 = image
@@ -71,19 +148,74 @@ def ipc_rev(image, kernel, order=2, gain=None):
     return output
 
 
-"""LINEARITY UTILITIES"""
+def correct_cube(data, ipc_file, mylog, gain_file=None):
+    """
+    IPC corrects a full data cube (data) in place.
+
+    Operates in electrons if `gain_file` is None or missing, but
+    operates in DN if `gain_file` is provided.
+
+    Parameters
+    ----------
+    data : np.array
+        3D data cube, shape (ngrp, ny, nx).
+    ipc_file : str
+        Location of ASDF ipc4d calibration reference file.
+    mylog : romanimpreprocess.utils.processlog.ProcessLog
+        Processing log.
+    gain_file : str or None, optional
+        If not none, the ASDF gain calibration reference file.
+
+    """
+
+    if ipc_file is None:
+        if mylog is not None:
+            mylog.append("No IPC file specified, skipping ...\n")
+        return
+
+    with asdf.open(ipc_file) as F:
+        kernel = F["roman"]["data"]
+        if mylog is not None:
+            mylog.append(
+                f"IPC kernel center range --> {np.amin(kernel[1,1,:,:]):f},{np.amax(kernel[1,1,:,:]):f}\n"
+            )
+        (ngrp, ny, nx) = np.shape(data)
+        nb = (8192 + (nx - np.shape(kernel)[-1]) // 2) % 16
+        if mylog is not None:
+            mylog.append(f" ..., {ngrp:d} groups, excluding {nb:d} border pixels\n")
+        if gain_file is None:
+            g = 1.0
+        else:
+            with asdf.open(gain_file) as G:
+                g = np.copy(G["roman"]["data"][nb : ny - nb, nb : nx - nb])
+        for i in range(ngrp):
+            data[i, nb : ny - nb, nb : nx - nb] = ipc_rev(data[i, nb : ny - nb, nb : nx - nb] * g, kernel) / g
+
+
+## LINEARITY UTILITIES ##
 
 
 def _lin(z, coefs, linextrap=True):
-    """Helper function to evaluate Legendre-based function.
+    """
+    Helper function to evaluate Legendre-based function.
 
-    z = rescaled signal (modified DN), shape (ny,nx)
-    coefs = Legendre polynomial coefficients, shape(p_order+1,ny,nx)
-    linextrap = linearly extrapolate beyond end of range? (boolean)
+    Parameters
+    ----------
+    z : np.array
+        Rescaled signal (modified DN), shape (ny,nx).
+    coefs : np.array
+        Legendre polynomial coefficients, shape (p_order+1,ny,nx).
+    linextrap : bool, optional
+        Linearly extrapolate beyond end of range?
+        (Default = True is better behaved.)
 
-    Returns:
-    phi = sum_l coefs_l P_p(z), shape (ny,nx)
-    exflag = extrapolated beyond |z|=1?
+    Returns
+    -------
+    phi : np.array
+        The linearized signal, `` sum_l coefs_l P_p(z)``, shape (ny,nx)
+    exflag : np.array of bool
+        Extrapolated beyond |z|=1?, shape (ny,nx)
+
     """
 
     exflag = np.abs(z) > 1  # are we extrapolating?
@@ -106,19 +238,30 @@ def _lin(z, coefs, linextrap=True):
 
 
 def linearity(S, linearity_file, origin=(0, 0)):
-    """Performs a linearity correction.
+    """
+    Performs a linearity correction.
 
-    Inputs:
-    S = input data shape (ny,nx)
-    linearity_file = asdf file with linearity data
-    origin = (x,y) of the lower-left corner of S in the convention of the file
+    Parameters
+    ----------
+    S : np.array
+        2D data array in DN_raw.
+    linearity_file : str
+        ASDF file with linearity data.
+    origin : (int, int), optional
+        The (x,y) position of the lower-left corner of S in the convention of the file.
 
-    So for example, if you have a block S that corresponds to region [128:132,256:260] then you
-    would give origin = (256,128)
+    Returns
+    -------
+    Slin : np.array
+        2D data array in DN_lin. Same shape as `S`.
+    dq : np.array of uint32
+        2D flag array. Same shape as `S`.
 
-    Returns:
-    Slin, shape (ny,nx), also in DN
-    dq = uint32 flag array
+    Notes
+    -----
+    The coordinate convention is that if you have a block `S` that corresponds to region
+    ``[128:132,256:260]``, then you would give ``origin=(256,128)``.
+
     """
 
     (dy, dx) = np.shape(S)
@@ -137,23 +280,40 @@ def linearity(S, linearity_file, origin=(0, 0)):
 
 
 def multilin(S, linearity_file, origin=(0, 0), do_not_flag_first=True, attempt_corr=None):
-    """Performs a linearity correction, but with multiple groups.
+    """
+    Performs a linearity correction, but with multiple groups.
 
-    Inputs:
-    S = input data shape (ngrp,ny,nx)
-    linearity_file = asdf file with linearity data
-    origin = (x,y) of the lower-left corner of S in the convention of the file
-    do_not_flag_first = don't flag the first read if it is out of range (useful for reset-read
-        frames that we won't use anyway)
-    attempt_corr = if provided, an array of the same shape as S that is True if we want to try the correction
-        and False otherwise (the idea is that we want to be able to *not* flag a pixel that is saturated)
+    Parameters
+    ----------
+    S : np.array
+        Input data as a 3D numpy array, shape (ngrp, ny, nx).
+    linearity_file : str
+        ASDF calibration reference file with linearity data.
+    origin : (int, int), optional
+        The (x,y) position of the lower-left corner of `S` in the convention of the file.
+    do_not_flag_first : bool, optional
+        Don't flag the first read if it is out of range (True by default for reset-read
+        frames that we won't use anyway).
+    attempt_corr : np.array of bool, optional
+        If provided, an array of the same shape as `S` that is True if we want to try the correction
+        and False otherwise (the idea is that we want to be able to *not* flag a pixel that is saturated).
+        Default is to attempt to correct everything.
 
-    So for example, if you have a block S that corresponds to region [128:132,256:260] then you
-    would give origin = (256,128)
+    Returns
+    -------
+    Slin : np.array
+        Linearized data, shape (ngrp,ny,nx), in DN_lin.
+    dq : np.array of uint32
+        Flag array (2D).
 
-    Returns:
-    Slin, shape (ngrp,ny,nx), also in DN
-    dq = uint32 flag array (right now 2D)
+    Notes
+    -----
+    The coordinate convention is that if you have a block `S` that corresponds to region
+    ``[128:132,256:260]``, then you would give ``origin=(256,128)``. This is in 2D, so
+    `origin` has only 2 entries (no offset is given on the time axis).
+
+    ``Slin=0`` corresponding to the bias level ``Sref`` in the calibration reference file.
+
     """
 
     (ngrp, dy, dx) = np.shape(S)
@@ -191,20 +351,30 @@ def multilin(S, linearity_file, origin=(0, 0), do_not_flag_first=True, attempt_c
 
 
 def invlinearity(Slin, linearity_file, origin=(0, 0)):
-    """Calculates the inverse linearity.
-    This is most likely to be used in simulations.
+    """
+    Calculates the inverse linearity. (This is most likely to be used in simulations.)
 
-    Inputs:
-    Slin = input data shape (ny,nx)
-    linearity_file = asdf file with linearity data
-    origin = (x,y) of the lower-left corner of S in the convention of the file
+    Parameters
+    ----------
+    Slin : np.array
+        2D input data, shape (ny,nx), in DN_lin.
+    linearity_file : str
+        ASDF calibration reference file with linearity data.
+    origin : (int, int), optional
+        The (x,y) position of the lower-left corner of `S` in the convention of the calibration file.
 
-    So for example, if you have a block S that corresponds to region [128:132,256:260] then you
-    would give origin = (256,128)
+    Returns
+    -------
+    S : np.array
+        2D array, same shape as `Slin`, in DN_raw.
+    exflag : np.array of bool
+        Extrapolation flag.
 
-    Returns:
-    S, shape (ny,nx), in DNlin (with Slin=0 corresponding to the bias level Sref)
-    exflag = boolean, extrapolated?
+    Notes
+    -----
+    This function works by bisection. It is the slowest step in the simulation -> Level 1 workflow,
+    so we plan to implement a more advanced algorithm in the future.
+
     """
 
     (dy, dx) = np.shape(Slin)
@@ -228,52 +398,38 @@ def invlinearity(Slin, linearity_file, origin=(0, 0)):
     return S, exflag
 
 
-def correct_cube(data, ipc_file, mylog, gain_file=None):
-    """IPC corrects a full data cube (data) in place.
-
-    It can operate on a data cube in DN if a gain_file is passed.
-    """
-
-    if ipc_file is None:
-        if mylog is not None:
-            mylog.append("No IPC file specified, skipping ...\n")
-        return
-
-    with asdf.open(ipc_file) as F:
-        kernel = F["roman"]["data"]
-        if mylog is not None:
-            mylog.append(
-                f"IPC kernel center range --> {np.amin(kernel[1,1,:,:]):f},{np.amax(kernel[1,1,:,:]):f}\n"
-            )
-        (ngrp, ny, nx) = np.shape(data)
-        nb = (8192 + (nx - np.shape(kernel)[-1]) // 2) % 16
-        if mylog is not None:
-            mylog.append(f" ..., {ngrp:d} groups, excluding {nb:d} border pixels\n")
-        if gain_file is None:
-            g = 1.0
-        else:
-            with asdf.open(gain_file) as G:
-                g = np.copy(G["roman"]["data"][nb : ny - nb, nb : nx - nb])
-        for i in range(ngrp):
-            data[i, nb : ny - nb, nb : nx - nb] = ipc_rev(data[i, nb : ny - nb, nb : nx - nb] * g, kernel) / g
-
-
 """IPC + inverse linearity forward modeling tools"""
 
 
 class IL:
-    """IPC+Inverse linearity class. This exists to wrap invlinearity in a way that
-    is consistent with romanisim.
+    """
+    IPC+Inverse linearity class.
 
-    If built with ipc_file=None, then skips the IPC.
+    This exists to wrap the IPC and inverse-linearity operations in a way that is consistent with
+    ``romanisim``.
 
-    Optionally can start with some number of electrons (start_e, number or array) in the well.
-    Useful for reset noise.
+    Parameters
+    ----------
+    linearity_file : str
+        The ASDF linearity calibration reference file.
+    gain_file : str
+        The ASDF gain calibration reference file.
+    ipc_file : str or None
+        The ASDF ipc4d calibration reference file.
+        If None, skips the IPC.
+    start_e : np.array or float, optional
+        If provided, starts with some number of electrons (start_e, number or array) in the well.
+        Useful for reset noise.
 
-    Methods:
+    Methods
+    -------
     __init__
+        Constructor
     set_dq
+        Sets the 3D data quality flags.
     apply
+        Converts a linearized signal to a non-linear, IPC-convolved signal.
+
     """
 
     def __init__(self, linearity_file, gain_file, ipc_file, start_e=0.0):
@@ -286,25 +442,45 @@ class IL:
             self._dq = np.copy(f["roman"]["dq"])
 
     def set_dq(self, ngroup=1, nborder=4):
-        """This is so that the data quality flags can be propagated."""
+        """
+        Sets the 3D data quality flags.
+
+        This is so that the data quality flags can be propagated.
+
+        Parameters
+        ----------
+        ngroup : int, optional
+            Number of groups to initialize.
+        nborder : int, optional
+            Number of border reference pixels.
+
+        Returns
+        -------
+        None
+
+        """
+
         (ny, nx) = np.shape(self._dq)
         self.dq = np.zeros((ngroup, ny - 2 * nborder, nx - 2 * nborder), dtype=np.uint32)
         self.dq[:, :, :] = self._dq[None, nborder : ny - nborder, nborder : nx - nborder]
 
     def apply(self, counts, electrons=False, electrons_out=False):
-        """Converts a linearized signal to a non-linear signal.
+        """
+        Converts a linearized signal to a non-linear signal.
 
-        Inputs could be:
-        electrons (electrons = True)
-        DN_lin (electrons = False)
+        Parameters
+        ----------
+        counts : np.array
+            2D array of counts.
+        electrons : bool, optional
+            Is input in electrons (True) or DN_lin (False, default).
+        electrons_out : bool, optional
+            Is output in electrons (True) or DN_raw (False, default).
 
-        Outputs could be:
-        g*(S-Sref) (electrons_out = True)
-        DN_raw (electrons_out = False)
         """
 
         print("apply", electrons, electrons_out, np.shape(counts))
-        print(counts[:6, :6])
+        # print(counts[:6, :6])
         sys.stdout.flush()
 
         # this uses a 4d IPC file
@@ -344,7 +520,7 @@ class IL:
 
 
 def test__lin():
-    """Simple test function."""
+    """Simple test function for _lin."""
     z = np.linspace(-1.5, 1.5, 31).reshape((1, 31))
     coefs = np.zeros((4, 1, 31))
     coefs[3, :, :] = 1.0
@@ -353,7 +529,19 @@ def test__lin():
 
 
 def test_lin_ilin(linearity_file):
-    """Some simple linearity tests."""
+    """
+    Forward-backward test for linearity routines.
+
+    Parameters
+    ----------
+    linearity_file : str
+        ASDF linearity calibration reference file.
+
+    Returns
+    -------
+    None
+
+    """
 
     ymin = 260
     ymax = 262
@@ -382,7 +570,23 @@ def test_lin_ilin(linearity_file):
 
 
 def test_IL(linearity_file, gain_file, ipc_file):
-    """Some tests for the inverse linearity class."""
+    """
+    Some tests for the inverse linearity class.
+
+    Parameters
+    ----------
+    linearity_file : str
+        ASDF linearity calibration reference file.
+    gain_file : str
+        ASDF gain calibration reference file.
+    ipc_file : str
+        ASDF ipc4d calibration reference file.
+
+    Returns
+    -------
+    None
+
+    """
 
     ILTEST = IL(linearity_file, gain_file, ipc_file)
     n = 4088
@@ -397,7 +601,7 @@ def test_IL(linearity_file, gain_file, ipc_file):
 
 
 if __name__ == "__main__":
-    """Test function"""
+    # some tests
 
     if len(sys.argv) < 3:
         print("call with python linearity.py <linearity_file> <gain_file> [<ipc_file>].")

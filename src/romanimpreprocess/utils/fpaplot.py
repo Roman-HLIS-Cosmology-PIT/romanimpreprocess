@@ -1,4 +1,17 @@
-"""Script to make a plot of properties of the focal plane from a bunch of calibration files.
+"""
+Script to make a plot of properties of the focal plane from a bunch of calibration files.
+
+Functions
+---------
+read_sca_image
+    Function to read an SCA image (in some format, and of some quantity).
+write_text
+    Writes text on an image.
+make_big_image
+    Makes an RGB image of the full focal plane (all 18 SCAs).
+multi_image
+    Makes multi-panel plot of the focal plane.
+
 """
 
 import os
@@ -46,28 +59,37 @@ ctrs = np.array(
 bbox = {"xmin": -13312, "xmax": 13312, "ymin": -10254, "ymax": 6268}  # bounding box includes reference pixels
 
 
-def read_sca_image(infile_format, n1, ptype, scanum, **kwargs):
-    """Makes an image of the given SCA, binned to size n1,n1.
+def read_sca_image(infile_format, n1, ptype, scanum, mask=None):
+    """
+    Makes a (possibly binned) image of the given SCA.
 
-    Inputs
-    -------
-    infile_format : format string: input file should be infile_format.format(filestring, scanum)
-    n1 : output size that we want to bin to (must be a power of 2)
-    ptype : the data type
-    scanum : the SCA number (1..18)
-
-    Optional kwargs
-    ----------------
-    mask : builds a mask based on the indicated class
+    Parameters
+    ----------
+    infile_format : str
+        Format string: input file should be ``infile_format.format(filestring, scanum)``.
+    n1 : int
+        Output size that we want to bin to (must be a power of 2).
+    ptype : str
+        The data type to read.
+    scanum : int
+        The SCA number (1..18).
+    mask : variable
+        Builds a mask based on the indicated class.
 
     Returns
     ---------
-    arr : numpy array, binned to (n1,n1).
+    arr : np.array
+        2D image of the requested quantity on the SCA, binned to (n1, n1).
 
-    Comments
-    ---------
+    Notes
+    -----
     The legal ptypes are:
-    gain, alphaH, alphaV, alphaD
+    * ``'gain'`` : gain (e/DN)
+    * ``'alphaH', 'alphaV', 'alphaD'`` : IPC
+    * ``'lin2', 'lin3'`` : linearity coefficients
+    * ``'pflatnorm'`` : normalized pixel-level flat
+    * ``'read'`` : read noise (DN)
+
     """
 
     # find the file we need
@@ -118,7 +140,7 @@ def read_sca_image(infile_format, n1, ptype, scanum, **kwargs):
 
         # mask if need be
         with asdf.open(infile_format.format("mask", scanum)) as m:
-            thismask = kwargs.get("mask").build(m["roman"]["dq"])
+            thismask = mask.build(m["roman"]["dq"])
             use_obj = np.where(np.logical_not(thismask), use_obj, np.nan)
 
         arr = np.nanmean(use_obj.reshape((n1, nside_base // n1, n1, nside_base // n1)), axis=(1, 3))
@@ -131,7 +153,28 @@ del lfile
 
 
 def write_text(image, origin, size, val, string):
-    """Utility to write text on an image."""
+    """
+    Utility to write text on an image.
+
+    Parameters
+    ----------
+    image : np.array of int
+        2D image to write on
+    origin : (int, int)
+        location to start writing (upper left).
+    size : int
+        Amount to scale up text; each letter occupies shape (12*size, 6*size).
+    val : int
+        The brightness to set the text (normally between 0 and 255 inclusive).
+    string : str
+        The text to write.
+
+    Returns
+    -------
+    None
+
+    """
+
     (posy, posx) = origin
     for i in range(len(string)):
         if posx + size * 6 > np.shape(image)[-1] or posy + size * 12 > np.shape(image)[-2]:
@@ -144,26 +187,42 @@ def write_text(image, origin, size, val, string):
         posx += size * 8
 
 
-def make_big_image(infile_format, n1, ptype, **kwargs):
-    """Makes an RGB image of the focal plane.
+def make_big_image(infile_format, n1, ptype, vmin=0.0, vmax=1.0, mask=None, cmap="viridis", scale=None):
+    """
+    Makes an RGB image of the focal plane.
 
-    Inputs
-    -------
-    infile_format : format string: input file should be infile_format.format(filestring, scanum)
-    n1 : output size that we want to bin to (must be a power of 2)
-    ptype : the data type
-
-    Required kwargs
-    ----------------
-    vmin, vmax : scale limits
-
-    Optional kwargs
-    ----------------
-    scale : display color scale
+    Parameters
+    ----------
+    infile_format : str
+        Format string: input file should be ``infile_format.format(filestring, scanum)``.
+    n1 : int
+        Output size that we want to bin to (must be a power of 2).
+    ptype : str
+        The data to read (see below).
+    vmin : float
+        Minimum of the color scale.
+    vmax : float
+        Maximum of the color scale.
+    mask : variable
+        Builds a mask based on the indicated class.
+    cmap : str, optional
+        Display color scale.
+    scale : str, optional
+        Format string for the color bar.
 
     Returns
-    ---------
-    arr : 3D RGB numpy array (RGB is axis=-1)
+    -------
+    arr : np.array of uint8
+        3D RGB numpy array (RGB is axis=-1).
+
+    See Also
+    --------
+    read_sca_image : The routine that is wrapped to read the data from the calibration file.
+
+    Notes
+    -----
+    The legal values of `ptype` are as described in ``read_sca_image``.
+
     """
 
     # first get the array size we need
@@ -173,26 +232,22 @@ def make_big_image(infile_format, n1, ptype, **kwargs):
     arr = np.zeros((ny, nx, 3), dtype=np.uint8)
     arr[:, :, :] = 255  # make background white
 
-    cmap = matplotlib.colormaps["viridis"]
-    if "cmap" in kwargs:
-        cmap = matplotlib.colormaps[kwargs.get("cmap")]
+    cmap = matplotlib.colormaps[cmap]
 
     for scanum in range(1, 19):
-        myImage = read_sca_image(infile_format, n1, ptype, scanum, **kwargs)
+        myImage = read_sca_image(infile_format, n1, ptype, scanum, mask=mask)
 
         # pflat is special and has the per-chip median divided out
         if ptype == "pflat":
             myImage /= np.nanmedian(myImage) + 1e-24
 
         myImage = np.nan_to_num(myImage, 0.0)
-        myImage = np.clip(
-            (myImage - kwargs.get("vmin")) / (kwargs.get("vmax") - kwargs.get("vmin")), 0.0, 1.0
-        )
+        myImage = np.clip((myImage - vmin) / (vmax - vmin), 0.0, 1.0)
         posx = (ctrs[scanum - 1, 0] - nside_base // 2 - bbox["xmin"]) // scale
         posy = (ctrs[scanum - 1, 1] - nside_base // 2 - bbox["ymin"]) // scale
         arr[posy : posy + n1, posx : posx + n1, :] = cmap(myImage, bytes=True)[:, :, :3]
 
-    if "scale" in kwargs:
+    if scale is not None:
         arr[-(n1 // 8) :, nx // 2 - n1 : nx // 2 + n1, :] = cmap(np.linspace(0, 1, 2 * n1), bytes=True)[
             None, :, :3
         ]
@@ -200,9 +255,7 @@ def make_big_image(infile_format, n1, ptype, **kwargs):
         posy = ny - n1 // 8 - 15 * sc
         for j in range(3):
             arr[-(n1 // 8) - 2 * sc : -(n1 // 8), nx // 2 - n1 + j * n1 : nx // 2 - n1 + j * n1 + sc, :] = 0
-            txt = kwargs.get("scale").format(
-                j / 2.0 * (kwargs.get("vmax") - kwargs.get("vmin")) + kwargs.get("vmin")
-            )
+            txt = scale.format(j / 2.0 * (vmax - vmin) + vmin)
             posx = nx // 2 - n1 + n1 * j - 3 * sc * len(txt)
             for l_ in range(3):
                 write_text(arr[:, :, l_], (posy, posx), sc, 0, txt)
@@ -228,7 +281,24 @@ def make_big_image(infile_format, n1, ptype, **kwargs):
 
 
 def multi_image(infile_format, n1, masktype):
-    """Makes a multi-panel image of the focal plane."""
+    """
+    Makes a multi-panel image of the focal plane.
+
+    Parameters
+    ----------
+    infile_format : str
+        Format string: input file should be ``infile_format.format(filestring, scanum)``.
+    n1 : int
+        Output size that we want to bin to (must be a power of 2).
+    masktype : variable
+        Builds a mask based on the indicated class.
+
+    Returns
+    -------
+    np.array of uint8
+        3D RGB numpy array (RGB is axis=-1).
+
+    """
 
     my_images = []
 
