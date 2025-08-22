@@ -87,6 +87,7 @@ select = [
 ignore = [
     "UP006", # Allow non standard library generics in type hints
     "UP007", # Allow Union in type hints
+    "UP022", # Allow subprocess piping
     "SIM114", # Allow if with same arms
     "B028", # Allow default warning level
     "SIM117", # Allow nested with
@@ -96,6 +97,7 @@ ignore = [
     "N802", # Allow uppercase in function name
     "N803", # Allow uppercase in variable name
     "N806", # Allow uppercase in variable name
+    "N816", # Allow mixed case variable names
     "SIM102", # Allow nested if
     "B006", # Allow mutable defaults
 ]
