@@ -11,8 +11,7 @@
 # may also need to use --export=TMPDIR=... if you need to specify a temporary directory on your system
 
 cd $SLURM_SUBMIT_DIR
-cd ../../..
-python3 -m romanimpreprocess.runs.summer2025run.OpenUniverse_to_L1L2 \
+python3 -m OpenUniverse_to_L1L2 \
    --in=/fs/scratch/PCON0003/cond0007/anl-run-in-prod/truth/ \
    --out=/fs/scratch/PCON0003/cond0007/summer2025/ \
    --cal=/fs/scratch/PCON0003/cond0007/cal/ \

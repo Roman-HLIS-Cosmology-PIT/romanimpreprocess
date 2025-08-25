@@ -115,13 +115,5 @@ python linearity_run.py $SCRIPT_DIR/linearity_pars_$USE_SCA.json
 # post-process these to get pflat and saturation
 cd $SCRIPT_DIR
 pwd
-# symbolic links are a temporary solution --- I want to get rid of this in the next iteration
-# since it prevents relative imports from the utilities
-ln -s ../../utils/ipc_linearity.py loc_ipc_linearity.py
-ln -s ../../utils/sky.py loc_sky.py
-ln -s ../../pars.py loc_pars.py
 python postprocess_calfiles.py $TARGET_DIR/roman_wfi_linearitylegendre_$TAG\_SCA$USE_SCA.asdf $USE_SCA $READ_PATTERN_NAME
 python makemask.py $TARGET_DIR/roman_wfi_mask_$TAG\_SCA$USE_SCA.asdf $USE_SCA $READ_PATTERN_NAME
-rm loc_ipc_linearity.py
-rm loc_sky.py
-rm loc_pars.py
