@@ -479,7 +479,8 @@ def calibrateimage(config, verbose=True):
     oututils.add_in_ref_data(im2, config["IN"], rdq, pdq)
 
     # update the metadata
-    oututils.update_flags(im2, "gen_cal_image")
+    # oututils.update_flags(im2, "gen_cal_image") # <-- this doesn't work with updated roman_datamodels,
+    #                                                    but it isn't essential
     oututils.add_in_provenance(im2, "gen_cal_image")
 
     # process information specific to this code

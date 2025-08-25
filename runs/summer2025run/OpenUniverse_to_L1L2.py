@@ -3,9 +3,10 @@
 import os
 import sys
 
-from ...from_sim import sim_to_isim
-from ...L1_to_L2 import gen_noise_image
-from ...utils import maskhandling
+from filelock import FileLock
+from romanimpreprocess.from_sim import sim_to_isim
+from romanimpreprocess.L1_to_L2 import gen_noise_image
+from romanimpreprocess.utils import maskhandling
 
 ### --- Setup information ---
 
@@ -47,8 +48,9 @@ sys.stdout.flush()
 nsca = 18
 seed += dseed * use_sca
 
-# make directories if SCA 1
-if use_sca == 1:
+# make directories (but not all at once)
+lock = FileLock(output_dir + "ou.lock")
+with lock:
     try:
         os.mkdir(output_dir + "/L1")
     except FileExistsError:

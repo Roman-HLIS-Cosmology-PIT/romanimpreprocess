@@ -39,7 +39,6 @@ import asdf
 import galsim
 import numpy as np
 import roman_datamodels
-import roman_datamodels.maker_utils as maker_utils
 import yaml
 from astropy import units as u
 from astropy.coordinates import SkyCoord
@@ -553,8 +552,8 @@ class Image2D:
 
         ### steps below are from romanisim.image.simulate ###
 
-        meta = maker_utils.mk_common_meta()
-        meta["photometry"] = maker_utils.mk_photometry()
+        image_mod = roman_datamodels.datamodels.ImageModel.create_fake_data()
+        meta = image_mod.meta
         meta["wcs"] = None
 
         for key in parameters.default_parameters_dictionary:
@@ -564,13 +563,6 @@ class Image2D:
             meta[key].update(metadata[key])
 
         util.add_more_metadata(meta)
-
-        # Create Image model to track validation
-        image_node = maker_utils.mk_level2_image()
-        image_node["meta"] = meta
-        image_mod = roman_datamodels.datamodels.ImageModel(image_node)
-
-        # filter_name = image_mod.meta.instrument.optical_element
 
         read_pattern = metadata["exposure"].get("read_pattern", use_read_pattern)
 
