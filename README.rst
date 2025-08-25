@@ -4,10 +4,7 @@ HLWAS Image Preprocessing Tools
 This package handles basic pre-processing of Roman data prior to feeding it to PyIMCOM. The ultimate aim will be for it to handle both simulations and 
 real Level 1/2 data.
 
-Warning
-*******
-
-**This is under construction! I'm still doing initial testing, so don't grab this version yet.**
+See also the `readthedocs<https://romanimpreprocess.readthedocs.io/en/latest/>`_ page.
 
 Dependencies
 ************
