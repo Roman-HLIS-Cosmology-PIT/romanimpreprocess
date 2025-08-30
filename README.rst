@@ -4,7 +4,7 @@ HLWAS Image Preprocessing Tools
 This package handles basic pre-processing of Roman data prior to feeding it to PyIMCOM. The ultimate aim will be for it to handle both simulations and 
 real Level 1/2 data.
 
-See also the `readthedocs <https://romanimpreprocess.readthedocs.io/en/latest/>`_ page.
+See also the `readthedocs <https://romanimpreprocess.readthedocs.io/en/latest/autoapi/index.html>`_ page.
 
 Dependencies
 ************
@@ -23,10 +23,10 @@ You will need to install:
   that ``romanimpreprocess`` calls directly (specifically: ``stcal`` and ``roman_datamodels``).
 
 The ``romanimpreprocess`` workflows do not explicitly call the Calibration Reference Data System (CRDS), although both ``romanisim`` and ``romancal`` 
-have the ability to do so. Rather, we are specifying calibration reference files in the YAML configurations.
+have the ability to do so. Rather, we are specifying calibration reference files in the YAML configurations. (Direct calls from ``romanimpreprocess`` to CRDS will likely be added as an option in the future.)
 
 If you want to *generate* your own calibration files from flats and darks (as opposed to using externally provided ones) then you will want to download 
-`solid-waffle <https://github.com/hirata10/solid-waffle>`_.
+`solid-waffle <https://github.com/hirata10/solid-waffle>`_. This is being done for the summer 2025 run so that we test out the workflow and have some distribution of hot/low-response/etc. pixels, but of course the files are *not* "complete" as they have dummies for some of the calibrations that can only be done in flight.
 
 
 Conventions
@@ -137,13 +137,13 @@ Here:
 This will generate the output (simulated L2) file, with the provided WCS (in this case
 ``sim1_asdf_wcshead.txt``) included.
 
-See `the L1_to_L2 Readme <L1_to_L2/>`_ for detailed instructions and all the options.
+See `the L1_to_L2 Readme <docs/L1_to_L2_README.rst>`_ for detailed instructions and all the options.
 
 Utilities
 *********
 
 The ``utils/`` folder includes some utilities that are intended to be called by the pipelines, but also that users might find useful for postprocessing, 
-visualization, or other applications. See the `utilities page <utils/>`_ for more details.
+visualization, or other applications. See the `utilities page <docs/utils_README.rst>`_ for more details.
 
 A few useful test scripts are in `tests <tests/README.rst>`_.
 
