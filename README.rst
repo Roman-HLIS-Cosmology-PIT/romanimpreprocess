@@ -4,7 +4,7 @@ HLWAS Image Preprocessing Tools
 This package handles basic pre-processing of Roman data prior to feeding it to PyIMCOM. The ultimate aim will be for it to handle both simulations and 
 real Level 1/2 data.
 
-See also the `readthedocs <https://romanimpreprocess.readthedocs.io/en/latest/>`_ page.
+See also the `readthedocs <https://romanimpreprocess.readthedocs.io/en/latest/autoapi/index.html>`_ page.
 
 Dependencies
 ************
@@ -137,13 +137,13 @@ Here:
 This will generate the output (simulated L2) file, with the provided WCS (in this case
 ``sim1_asdf_wcshead.txt``) included.
 
-See `the L1_to_L2 Readme <L1_to_L2/>`_ for detailed instructions and all the options.
+See `the L1_to_L2 Readme <docs/L1_to_L2_README.rst>`_ for detailed instructions and all the options.
 
 Utilities
 *********
 
 The ``utils/`` folder includes some utilities that are intended to be called by the pipelines, but also that users might find useful for postprocessing, 
-visualization, or other applications. See the `utilities page <utils/>`_ for more details.
+visualization, or other applications. See the `utilities page <docs/utils_README.rst>`_ for more details.
 
 A few useful test scripts are in `tests <tests/README.rst>`_.
 
