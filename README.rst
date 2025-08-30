@@ -23,10 +23,10 @@ You will need to install:
   that ``romanimpreprocess`` calls directly (specifically: ``stcal`` and ``roman_datamodels``).
 
 The ``romanimpreprocess`` workflows do not explicitly call the Calibration Reference Data System (CRDS), although both ``romanisim`` and ``romancal`` 
-have the ability to do so. Rather, we are specifying calibration reference files in the YAML configurations.
+have the ability to do so. Rather, we are specifying calibration reference files in the YAML configurations. (Direct calls from ``romanimpreprocess`` to CRDS will likely be added as an option in the future.)
 
 If you want to *generate* your own calibration files from flats and darks (as opposed to using externally provided ones) then you will want to download 
-`solid-waffle <https://github.com/hirata10/solid-waffle>`_.
+`solid-waffle <https://github.com/hirata10/solid-waffle>`_. This is being done for the summer 2025 run so that we test out the workflow and have some distribution of hot/low-response/etc. pixels, but of course the files are *not* "complete" as they have dummies for some of the calibrations that can only be done in flight.
 
 
 Conventions
