@@ -119,9 +119,9 @@ for infile in os.listdir(input_dir):
         "RAMP_OPT_PARS": {"slope": 0.4, "gain": 1.8, "sigma_read": 7.0},
         "JUMP_DETECT_PARS": {"SthreshA": 5.5, "SthreshB": 4.5, "IthreshA": 0.6, "IthreshB": 600.0},
         "SKYORDER": 2,
-        "FITSOUT": False,
+        "FITSOUT": sca == 4,  # save SCA #4.
         "NOISE": {
-            "LAYER": ["Rz4S2C1", "Rz4S2C2"],
+            "LAYER": ["Rz4S2C1", "Rz4S2C2", "Rz4PbrS2", "Rz4PrS2"],
             "TEMP": temp_dir + f"/temp_{band:s}_{obsid:d}_{sca:d}.asdf",
             "SEED": seed,
             "OUT": output_dir + f"/L2/sim_L2_{band:s}_{obsid:d}_{sca:d}_noise.asdf",
