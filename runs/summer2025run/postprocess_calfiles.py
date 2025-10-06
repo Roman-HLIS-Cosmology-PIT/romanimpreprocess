@@ -2,7 +2,7 @@
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import asdf
 import numpy as np
@@ -46,7 +46,7 @@ tree = {
             "description": "postprocess_calfiles.py",
             "instrument": {"detector": f"WFI{sca:02d}", "name": "WFI"},
             "origin": "PIT - romanimpreprocess",
-            "date": datetime.now(timezone.utc).isoformat(),
+            "date": datetime.now(UTC).isoformat(),
             "pedigree": "DUMMY",
             "reftype": "PFLAT",
             "telescope": "ROMAN",
@@ -79,7 +79,7 @@ tree = {
             "description": "postprocess_calfiles.py",
             "instrument": {"detector": f"WFI{sca:02d}", "name": "WFI"},
             "origin": "PIT - romanimpreprocess",
-            "date": datetime.now(timezone.utc).isoformat(),
+            "date": datetime.now(UTC).isoformat(),
             "pedigree": "DUMMY",
             "reftype": "SATURATION",
             "telescope": "ROMAN",
@@ -153,7 +153,7 @@ tree = {
             "description": "postprocess_calfiles.py",
             "instrument": {"detector": f"WFI{sca:02d}", "name": "WFI"},
             "origin": "PIT - romanimpreprocess",
-            "date": datetime.now(timezone.utc).isoformat(),
+            "date": datetime.now(UTC).isoformat(),
             "pedigree": "DUMMY",
             "reftype": "BIASCORR",
             "telescope": "ROMAN",

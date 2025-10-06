@@ -1,7 +1,7 @@
 """Makes dark reference files."""
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from os.path import exists
 from os.path import split as pathsplit
 
@@ -123,7 +123,7 @@ tree = {
                 "optical_element": "F158",  # actually doesn't matter for dark
             },
             "origin": "PIT - romanimpreprocess",
-            "date": datetime.now(timezone.utc).isoformat(),
+            "date": datetime.now(UTC).isoformat(),
             "pedigree": "DUMMY",
             "reftype": "DARK",
             "telescope": "ROMAN",
@@ -179,7 +179,7 @@ tree = {
                 "optical_element": "F158",  # actually doesn't matter for read noise
             },
             "origin": "PIT - romanimpreprocess",
-            "date": datetime.now(timezone.utc).isoformat(),
+            "date": datetime.now(UTC).isoformat(),
             "pedigree": "DUMMY",
             "reftype": "READNOISE",
             "telescope": "ROMAN",
