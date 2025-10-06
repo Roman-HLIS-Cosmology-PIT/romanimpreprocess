@@ -6,3 +6,7 @@ galsim
 fitsio
 asdf
 matplotlib
+romanisim
+roman_datamodels
+stcal
+romancal
