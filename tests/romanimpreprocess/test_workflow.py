@@ -310,7 +310,7 @@ def gencal(cstem, rng):
     asdf.AsdfFile(
         {
             "roman": {
-                "data": np.clip(Smax - 50, 1.5, None).astype(np.uint16),
+                "data": np.clip(Smax - 50, 1.5, None).astype(np.float32),
                 "dq": np.zeros((N, N), np.uint32),
             }
         }
