@@ -1,3 +1,5 @@
+.. image:: https://codecov.io/gh/Roman-HLIS-Cosmology-PIT/romanimpreprocess/graph/badge.svg?token=W3HE23HFVG
+
 HLWAS Image Preprocessing Tools
 ###############################
 
