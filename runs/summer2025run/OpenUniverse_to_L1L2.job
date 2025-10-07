@@ -2,7 +2,7 @@
 #SBATCH --job-name=sim
 #SBATCH --account=PCON0003
 #SBATCH --array=1-18
-#SBATCH --time=48:00:00
+#SBATCH --time=96:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=2
 
