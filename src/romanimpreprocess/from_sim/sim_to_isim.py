@@ -56,6 +56,8 @@ from ..utils.coordutils import pixelarea
 # local imports
 from ..utils.ipc_linearity import IL, ipc_rev
 
+# gcrsim import
+from gcrpipe.roman_pipeline_interface import generate_singleframe_cr
 
 def hdu_sip_hflip(data, header):
     """
@@ -238,6 +240,9 @@ def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, ts
         seed=None,
     )
 
+    #gcrsim pipeline insertion
+    rng = np.random.default_rng()
+    out_array_img = generate_singleframe_cr(rng)
     # print('resultants array', resultants[:,3890,237])
 
     with asdf.open(caldir["read"]) as f:
