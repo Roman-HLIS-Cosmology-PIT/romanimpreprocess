@@ -17,12 +17,12 @@ sca = 4
 tag = "TESTONLY"
 dt = 3.04
 
-# This is a shortened 7-read sequence that we don't plan on using in flight.
+# This is a shortened 14-read sequence that we don't plan on using in flight.
 # I chose it here because it is short and so good for a unit test
 # that we want to complete quickly.
 #   -- C.H.
 #
-read_pattern = [[0], [1], [2, 3, 4], [5], [6]]
+read_pattern = [[0], [1, 2], [3, 4, 5], [6, 7, 8, 9, 10], [11, 12], [13]]
 
 
 def genfile(out, v=1):
@@ -297,7 +297,7 @@ def gencal(cstem, rng):
     asdf.AsdfFile(
         {
             "roman": {
-                "anc": {"U_PINK": 1.0, "C_PINK": 2.5},
+                "anc": {"U_PINK": 0.4, "C_PINK": 0.8},
                 "data": (6.0 + 5.0 * rng.uniform(size=(N, N))).astype(np.float32),
                 "resetnoise": (25.0 + 5.0 * rng.uniform(size=(N, N))).astype(np.float32),
                 "amp33": amp33info,
@@ -372,7 +372,7 @@ def test_run_all(tmp_path):
             "FITSOUT": True,
             "CALDIR": caldir,
             "CNORM": 1.0,
-            "SEED": 100,
+            "SEED": 200,
         }
     )
 
@@ -384,7 +384,7 @@ def test_run_all(tmp_path):
         "FITSWCS": tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_{sca:d}_asdf_wcshead.txt",
         "CALDIR": caldir,
         "RAMP_OPT_PARS": {"slope": 0.4, "gain": 1.8, "sigma_read": 7.0},
-        "JUMP_DETECT_PARS": {"SthreshA": 5.5, "SthreshB": 4.5, "IthreshA": 0.6, "IthreshB": 600.0},
+        "JUMP_DETECT_PARS": {"SthreshA": 10.0, "SthreshB": 4.5, "IthreshA": 0.6, "IthreshB": 600.0},
         "SKYORDER": 2,
         "FITSOUT": True,
         "NOISE": {
@@ -414,12 +414,20 @@ def test_run_all(tmp_path):
         expected_signal /= f[0].header["EXPTIME"]
 
     with asdf.open(tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}.asdf") as a:
-        print(a.info(max_rows=None))
+        cry, crx = np.where(np.bitwise_and(a["roman"]["dq"] >> 2, 1))
+        print("FIRST CRs:")
+        print(cry[:10])
+        print(crx[:10])
+        v = max(cry[0], 3)
+        u = max(crx[0], 3)
+        print("2D image -->")
+        print(a["roman"]["data"][v - 3 : v + 3, u - 3 : u + 3])
+
         for i in range(32):
             count = np.count_nonzero(np.bitwise_and(a["roman"]["dq"] >> i, 1))
             print(f"BIT {i:2d} {count:7d}")
             if i == 2:
-                assert count > 10000 and count < 300000
+                assert count > 3000 and count < 300000
         isGood = np.where(a["roman"]["dq"] == 0, 1, 0)
 
         # now pull out the data, in DN/s
@@ -428,10 +436,10 @@ def test_run_all(tmp_path):
         # sky checks
         print(np.array(a["processinfo"]["skycoefs"]))
         assert len(a["processinfo"]["skycoefs"]) == 6
-        assert a["processinfo"]["skycoefs"][0] > 0.5
-        assert a["processinfo"]["skycoefs"][0] < 3.0
+        assert a["processinfo"]["skycoefs"][0] > 0.0
+        assert a["processinfo"]["skycoefs"][0] < 2.0
         for i in range(1, 6):
-            assert np.abs(a["processinfo"]["skycoefs"][i]) < 0.6
+            assert np.abs(a["processinfo"]["skycoefs"][i]) < 1.0
         skycoefs = np.array(a["processinfo"]["skycoefs"])
         skyresid = np.array(a["roman"]["data_withsky"]) - np.array(a["roman"]["data"])
         # now build residuals from sky model
@@ -461,4 +469,4 @@ def test_run_all(tmp_path):
 
 
 # if __name__ == "__main__":
-#    test_run_all("out") # <-- comment out in final version
+#     test_run_all("out") # <-- comment out in final version

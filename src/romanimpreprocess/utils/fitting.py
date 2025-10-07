@@ -235,7 +235,7 @@ def jump_detect(data, rdq, pdq, meta, caldir, mylog, exclude_first=True, truncat
             w -= K
             var_delta_slope = np.zeros((ny, nx))
             for a in range(ngrp):
-                var_delta_slope += w[a] ** 2 * (dvardt * meta["tau"][a] + sig2read)
+                var_delta_slope += w[a] ** 2 * (dvardt * meta["tau"][a] + sig2read / np.array(meta["N"][a]))
                 for b in range(a):
                     var_delta_slope += 2 * w[a] * w[b] * dvardt * meta["tbar"][b]
             smap[sl, :, :] = delta_slope / np.sqrt(var_delta_slope).astype(np.float32)
