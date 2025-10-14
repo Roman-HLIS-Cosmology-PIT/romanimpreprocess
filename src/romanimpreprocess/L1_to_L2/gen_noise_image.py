@@ -310,6 +310,12 @@ def generate_all_noise(config):
     for q in [5, 25, 50, 75, 95]:
         print(q, np.percentile(noiseimage, q, axis=(1, 2)))
 
+    if "NOISE_PRECISION" in config:
+        if config["NOISE_PRECISION"] == 16:
+            noiseimage = noiseimage.astype(np.float16)
+        if config["NOISE_PRECISION"] not in [16, 32]:
+            raise ValueError("Unsupported noise precision.")
+
     # now output the noise image
     tree = {"config": config, "noise": noiseimage}
     with asdf.AsdfFile(tree) as af, open(config["NOISE"]["OUT"], "wb") as f:
