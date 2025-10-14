@@ -12,8 +12,8 @@
 
 cd $SLURM_SUBMIT_DIR
 python3 -m OpenUniverse_to_L1L2 \
-   --in=/fs/scratch/PCON0003/cond0007/anl-run-in-prod/truth/ \
-   --out=/fs/scratch/PCON0003/cond0007/summer2025/ \
+   --in=/fs/scratch/PCON0003/cond0007/fall2025/truth/ \
+   --out=/fs/scratch/PCON0003/cond0007/fall2025/sim/ \
    --cal=/fs/scratch/PCON0003/cond0007/cal/ \
    --tag=DUMMY20250521 --seed=500 --dseed=10 \
    --sca=$SLURM_ARRAY_TASK_ID > simprocess-$SLURM_ARRAY_TASK_ID.log

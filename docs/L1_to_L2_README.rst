@@ -82,6 +82,8 @@ The configuration is a Python dictionary (normally read from a YAML file).
 
 - ``SKYORDER``: If provided, then subtracts a median-based sky model that is a 2D polynomial of the given order.
 
+- ``NOISE_PRECISION``: The precision to store noise fields, as number of bits in IEEE 754 floating point convention. Options are 16 and 32 (default = 32).
+
 A sample file would be::
 
     ---
@@ -215,7 +217,11 @@ The types of commands are:
 
   The noise can be clipped based on the median and interquartile range at some number of equivalent sigmas with the 'z' directive, e.g., ``'Raz4.5'`` will clip at 4.5 sigma. This is useful if you want to be able to feed another noise layer through the pipeline without re-computing the outlier mask, and thus it is recommended for use with feeding noise realizations to PyIMCOM, etc.
 
-* ``P``: Under construction (will generate simulated Poisson noise)
+* ``P``: Generate Poisson noise. This must come after ``R`` (if present). The variants of this command that are currently supported are:
+
+  * ``Pbr`` : re-sampled Poisson noise with background (sky level) only.
+
+  * ``Pr`` : re-sampled Poisson noise including sources as well as background (i.e., "total" Poisson noise).
 
 * ``S``: Perform sky subtraction on the noise realizations of the given order, e.g., ``'S2'`` removes a 2nd order polynomial from the noise realization, ``'S0'`` removes a constant, etc.
 
