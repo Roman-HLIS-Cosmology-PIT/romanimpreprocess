@@ -121,7 +121,7 @@ for infile in os.listdir(input_dir):
         "SKYORDER": 2,
         "FITSOUT": sca == 4,  # save SCA #4.
         "NOISE": {
-            "LAYER": ["Rz4S2C1", "Rz4S2C2", "Rz4PbrS2", "Rz4PrS2"],
+            "LAYER": ["Rz4PbrS2C1", "Rz4PbrS2C2", "Rz4PrS2C3", "Rz4PrS2C4"],
             "TEMP": temp_dir + f"/temp_{band:s}_{obsid:d}_{sca:d}.asdf",
             "SEED": seed,
             "OUT": output_dir + f"/L2/sim_L2_{band:s}_{obsid:d}_{sca:d}_noise.asdf",

@@ -540,8 +540,9 @@ class Image2D:
 
         target_pattern = 1000000
         parameters.read_pattern[target_pattern] = use_read_pattern
+        bandpass_name = "F" + self.filter[1:]  # schema wants, e.g., "F129" instead of "J129"
         metadata = ris.set_metadata(
-            date=self.date, bandpass=self.filter, sca=self.idsca[1], ma_table_number=target_pattern
+            date=self.date, bandpass=bandpass_name, sca=self.idsca[1], ma_table_number=target_pattern
         )
 
         print("::", self.ra_, self.dec_, self.pa_)
