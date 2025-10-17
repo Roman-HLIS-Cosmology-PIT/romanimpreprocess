@@ -1,5 +1,5 @@
 import math
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 from numpy.random import Generator, default_rng
@@ -18,7 +18,7 @@ from scipy.stats import betaprime, gamma, invgamma, t
 
 
 def draw_from_Pearson(
-    tilnu_21: float, tilnu_31: float, tilnu_41: float, I: np.ndarray, *, atol: float = 0.0, rng=None
+    tilnu_21: float, tilnu_31: float, tilnu_41: float, I_arr: np.ndarray, *, atol: float = 0.0, rng=None
 ):
     """
     Add a Pearson-family random deviate to each element of *I*,
@@ -28,20 +28,22 @@ def draw_from_Pearson(
     ----------
     tilnu_21, tilnu_31, tilnu_41 : float
         Scalar central-moment ratios (𝜈̃₂₁, 𝜈̃₃₁, 𝜈̃₄₁).
-    I : ndarray
+    I_arr : np.ndarray
         Input intensities.  They are **modified in place**.
     atol : float, optional
         Equality tolerance for the region boundaries.
+    rng : Generator, optional
+        Used for rng seeding
 
     Returns
     -------
-    draws : random draws from the Pearson family
-        with desired moments from eq x in Overleaf
+    draws : np.ndarray
+        random draws from the Pearson family with desired moments
     """
     if rng is None or not hasattr(rng, "random"):
         rng = np.random.default_rng(rng)
 
-    I_clipped = np.clip(np.asarray(I, dtype=float), 3.0, None)
+    I_clipped = np.clip(np.asarray(I_arr, dtype=float), 3.0, None)
 
     tilnu_42 = 3 * tilnu_21**2
 
@@ -334,7 +336,7 @@ def _log_reg_lower_gamma(a: float, x: float) -> float:
     return np.log1p(-Q)
 
 
-def _branch_masses(m: float) -> Tuple[float, float, float]:
+def _branch_masses(m: float):
     """
     Return (g0, w_left, w_right) for normalized g(s), computed in log-space.
       g0 is the normalization constant
@@ -384,9 +386,7 @@ def _sample_right(n: int, m: float, rng: np.random.Generator) -> np.ndarray:
     return Y - 1.0  # s = y-1
 
 
-def sample_g(
-    m: float, size: ArrayLike = 1, rng: Optional[np.random.Generator] = None
-) -> Tuple[np.ndarray, float]:
+def sample_g(m: float, size: ArrayLike = 1, rng: Optional[np.random.Generator] = None):
     """
     g0 is normalization const
     Draw samples from normalized g(s). Returns (samples, g0).
@@ -514,10 +514,7 @@ def pt4_rvs_ar(m: float, nu: float, a: float, lam: float, rng: Generator | None 
 
         sg = s0
 
-        if flip:
-            s = -s0
-        else:
-            s = s0
+        s = -s0 if flip else s0
 
         log_fS = _log_fS_from_s(s, m, nu, theta, root, logk, log_dxds)
         log_gS = _log_g_pdf_scalar(sg, m, g0)
@@ -616,13 +613,18 @@ def solve_pearson5_parameters_vec(tilnu_21, tilnu_31, I_arr):
     Parameters
     ----------
     tilnu_21, tilnu_31 : floats
-    I_arr              : ndarray of intensities
+        Used to solve for Pearson variables Beta_1 and Beta_2
+    I_arr              : np.ndarray
+        Used to solve for Pearson variables Beta_1 and Beta_2
 
     Returns
     -------
-    a_arr  : α array (shape parameters)
-    b_arr  : β array (scale parameters)
-    mu_arr : μ array (mean shifts)
+    a_arr  : np.ndarray
+        Pearson type 5 shape parameter
+    b_arr  : np.ndarray
+        Pearson type 5 shape parameter
+    mu_arr : np.ndarray
+        Mean shifts
     """
     I_arr = np.asarray(I_arr, dtype=float)
 
@@ -673,13 +675,13 @@ def random_from_type5(tilnu_21, tilnu_31, I_arr, rng=None):
 # ============================================================
 
 
-def solve_pearson6_params(tilnu_21, tilnu_31, tilnu_41, I):
+def solve_pearson6_params(tilnu_21, tilnu_31, tilnu_41, I_arr):
     """
     Parameters
     ----------
     tilnu_21, tilnu_31, tilnu_41 : floats
         Tilde-ν coefficients (shared across all intensities).
-    I : array-like
+    I_arr : array-like
         Noise-intensity values.
 
     Returns
@@ -687,11 +689,11 @@ def solve_pearson6_params(tilnu_21, tilnu_31, tilnu_41, I):
     alpha, beta, scale, shift : ndarrays (shape = I.shape)
     sign : float  (+1 or −1) – skew sign (same for every element)
     """
-    I = np.asarray(I, dtype=float)
+    I_arr = np.asarray(I_arr, dtype=float)
     tilnu_42 = 3 * tilnu_21**2
 
-    beta1 = tilnu_31**2 / (tilnu_21**3 * I)
-    beta2 = (tilnu_41 + tilnu_42 * I) / (tilnu_21**2 * I)
+    beta1 = tilnu_31**2 / (tilnu_21**3 * I_arr)
+    beta2 = (tilnu_41 + tilnu_42 * I_arr) / (tilnu_21**2 * I_arr)
     sign = 1.0 if tilnu_31 >= 0 else -1.0
 
     r = 6 * (beta2 - beta1 - 1) / (3 * beta1 - 2 * beta2 + 6)
@@ -704,14 +706,14 @@ def solve_pearson6_params(tilnu_21, tilnu_31, tilnu_41, I):
     beta = q1 - q2 - 1
 
     var1 = alpha * (alpha + beta - 1) / ((beta - 2) * (beta - 1) ** 2)
-    scale = np.sqrt(tilnu_21 * I / var1)
+    scale = np.sqrt(tilnu_21 * I_arr / var1)
     mean1 = alpha / (beta - 1)
     shift = scale * mean1
 
     return alpha, beta, scale, shift, sign
 
 
-def random_from_type6(tilnu_21, tilnu_31, tilnu_41, I, rng=None):
+def random_from_type6(tilnu_21, tilnu_31, tilnu_41, I_arr, rng=None):
     """
     Generates a draw from a unique shifted/scaled
     Beta Prime  per element of I_arr in an array of shape I_arr.
@@ -721,7 +723,7 @@ def random_from_type6(tilnu_21, tilnu_31, tilnu_41, I, rng=None):
     if rng is None:
         rng = np.random.default_rng()
 
-    a, b, s, shift, sgn = solve_pearson6_params(tilnu_21, tilnu_31, tilnu_41, I)
+    a, b, s, shift, sgn = solve_pearson6_params(tilnu_21, tilnu_31, tilnu_41, I_arr)
 
     y = betaprime.rvs(a, b, random_state=rng)  # one deviate per element (SciPy 1.11+)
     return _to_x(y, s, shift, sgn)
