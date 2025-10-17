@@ -170,10 +170,10 @@ def make_noise_cube(config, rng):
             if "b" in noiseflags:
                 sky_order = int("0" + _get_subscript(noiseflags.upper(), "B"))
                 with asdf.open(config["OUT"]) as f_orig:
-                    skylevel = sky.medfit(f_orig["roman"]["data"], order=sky_order)[1]  # noqa: F841
+                    skylevel = sky.medfit(f_orig["roman"]["data_withsky"].value, order=sky_order)[1]
             else:
                 with asdf.open(config["OUT"]) as f_orig:
-                    skylevel = np.copy(f_orig["roman"]["data"])  # noqa: F841
+                    skylevel = np.copy(f_orig["roman"]["data_withsky"].value)
 
             # ramp-fitting weights
             ngrp = len(mytree["roman"]["meta"]["exposure"]["read_pattern"])
@@ -192,8 +192,70 @@ def make_noise_cube(config, rng):
                 endslice_ = np.where(
                     f_L2["processinfo"]["endslice"] > 0, f_L2["processinfo"]["endslice"], ngrp - 1
                 )
-                endslide = endslice_  # noqa: F841
-            print(weightvecs)
+                endslice = endslice_  # noqa: F841
+            # At this point, weightvecs is a list of 1D numpy arrays.
+            # So the weight that went into sample j_samp in pixel (x,y) is
+            # weightvecs[endslice[y,x]][j_samp]
+
+            print("weightvecs =", weightvecs)
+            print("endslice =", endslice, np.shape(endslice))
+            sys.stdout.flush()
+
+            if "r" in noiseflags:
+                # generates re-sampled Poisson with the right variance
+
+                # get the gain map
+                with asdf.open(config["CALDIR"]["gain"]) as g_:
+                    gain = np.clip(g_["roman"]["data"], 1e-4, 1e4)  # prevent division by zero error
+                # trim if needed
+                d = (np.shape(gain)[-1] - np.shape(skylevel)[-1]) // 2
+                if d > 0:
+                    gain = gain[d:-d, d:-d]
+                n = np.shape(skylevel)[-1]
+
+                lastsamp = mytree["roman"]["meta"]["exposure"]["read_pattern"][-1][-1]
+                e_per_slice = skylevel * gain * mytree["roman"]["meta"]["exposure"]["frame_time"]
+                delta_resultants = np.zeros((ngrp, n, n), dtype=np.float32)
+
+                print("e_per_slice[2:6,2:6] =", e_per_slice[2:6, 2:6])
+                for j in [1, 5, 25, 50, 75, 95, 99]:
+                    print(f"{j:2d} %ile {np.percentile(e_per_slice, j)}")
+                e_per_slice = np.clip(e_per_slice, 0.0, None)  # eliminate issue with zeros
+
+                current_sample = np.zeros(np.shape(e_per_slice), dtype=np.float32)
+
+                for isamp in range(lastsamp + 1):
+                    # get Poisson error in that slice
+                    sample = np.copy(e_per_slice.astype(np.float64))
+                    galsim.PoissonDeviate(rng).generate_from_expectation(sample)
+                    sample -= e_per_slice
+                    sample /= gain  # convert to DN
+                    current_sample += sample
+
+                    print(">>", isamp, current_sample[2:6, 2:6])
+                    sys.stdout.flush()
+
+                    # build the table of changes in resultant
+                    for j in range(ngrp):
+                        if isamp in mytree["roman"]["meta"]["exposure"]["read_pattern"][j]:
+                            delta_resultants[j, :, :] += current_sample / len(
+                                mytree["roman"]["meta"]["exposure"]["read_pattern"][j]
+                            )
+
+                # now these resultants are in DN
+
+                print(delta_resultants[:, 2:6, 2:6])
+                sys.stdout.flush()
+
+                # ramp fit
+                for es in range(ngrp):
+                    if isinstance(weightvecs[es], np.ndarray):
+                        print("es =", es, weightvecs[es])
+                        sys.stdout.flush()
+                        for j in range(len(weightvecs[es])):
+                            diff[:, :] += np.where(
+                                endslice == es, weightvecs[es][j] * delta_resultants[j, :, :], 0.0
+                            )
 
         # remove modes that would be taken out in sky subtraction
         if "S" in cmd:
@@ -247,6 +309,12 @@ def generate_all_noise(config):
     print("percentiles:")
     for q in [5, 25, 50, 75, 95]:
         print(q, np.percentile(noiseimage, q, axis=(1, 2)))
+
+    if "NOISE_PRECISION" in config:
+        if config["NOISE_PRECISION"] == 16:
+            noiseimage = noiseimage.astype(np.float16)
+        if config["NOISE_PRECISION"] not in [16, 32]:
+            raise ValueError("Unsupported noise precision.")
 
     # now output the noise image
     tree = {"config": config, "noise": noiseimage}

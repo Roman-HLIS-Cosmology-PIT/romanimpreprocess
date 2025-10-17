@@ -40,6 +40,7 @@ The output file types and contents of the ``roman`` branch are as follows (diffe
 
 - ``biascorr`` **This is a correction that needs to be applied in the simulation to have the correct mean, beyond what we get by adding the dark current and non-linearity curve. Without this, a pixel with negligible dark current would have the same signal at all time, but there is an additional electronic bias especially in the read-reset frame. This may not matter very much since we exclude that frame from the ramp fitting, but we want to get as much right as possible.**
     - ``data`` (difference of dark data minus what we get from running dark_slope through the inverse linearity curve, ngroup x 4088 x 4088 DN)
+    - ``t0`` time stamp of bias image (float, s)
 - ``dark``
     - ``data`` (averages of darks, ngroup x 4096 x 4096, DN)
     - ``dq`` (4096 x 4096, uint32 flags)
@@ -70,6 +71,7 @@ The output file types and contents of the ``roman`` branch are as follows (diffe
     - ``data`` (1 sigma read noise per pixel, 4096 x 4096, DN)
     - ``resetnoise`` (1 sigma reset noise per pixel, 4096 x 4096, DN)
     - ``amp33`` (dictionary):
+        - ``valid`` (bool)
         - ``med`` (median reference output, 4096 x 128, DN)
         - ``std`` (sigma of reference output, 4096 x 128, DN)
         - ``M_PINK`` and ``RU_PINK`` (reference output 1/f noise parameters)

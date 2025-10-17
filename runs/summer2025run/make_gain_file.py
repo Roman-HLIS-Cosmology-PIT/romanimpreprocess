@@ -1,7 +1,7 @@
 """Makes gain and associated reference files."""
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from os.path import split as pathsplit
 
 import asdf
@@ -94,7 +94,7 @@ tree = {
             "description": "make_gain_file.py",
             "instrument": {"detector": f"WFI{sca:02d}", "name": "WFI"},
             "origin": "PIT - romanimpreprocess",
-            "date": datetime.now(timezone.utc).isoformat(),
+            "date": datetime.now(UTC).isoformat(),
             "pedigree": "DUMMY",
             "reftype": "GAIN",
             "telescope": "ROMAN",
@@ -185,7 +185,7 @@ tree = {
             "description": "make_gain_file.py",
             "instrument": {"detector": f"WFI{sca:02d}", "name": "WFI"},
             "origin": "PIT - romanimpreprocess",
-            "date": datetime.now(timezone.utc).isoformat(),
+            "date": datetime.now(UTC).isoformat(),
             "pedigree": "DUMMY",
             "reftype": "IPC4D",
             "telescope": "ROMAN",

@@ -453,6 +453,7 @@ def calibrateimage(config, verbose=True):
     persistence = rip.Persistence()
 
     # sky information
+    slope_withsky = np.copy(slope)  # version before sky subtraction
     m = maskhandling.PixelMask1.build(pdq)
     medsky, _ = sky.smooth_mode(sky.binkxk(np.where(np.logical_not(m), slope, np.nan), 4))
     # if the configuration asks for simple subtraction, do it
@@ -516,6 +517,7 @@ def calibrateimage(config, verbose=True):
     # Write file
     with asdf.AsdfFile() as af2:
         af2.tree = {"roman": im2, "processinfo": processinfo}
+        af2.tree["roman"]["data_withsky"] = slope_withsky[nb:-nb, nb:-nb] * u.DN / u.s
         with open(config["OUT"], "wb") as f:
             af2.write_to(f)
 

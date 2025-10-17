@@ -55,7 +55,7 @@ def ref_subtraction_channel(image, channel_start=0, channel_end=128, use_ref_cha
 
         # Do a least squares fit solution to fit a line to the top and bottom medians
         points = [(1.5, bottom_med), (4093.5, top_med)]
-        x_coords, y_coords = zip(*points)
+        x_coords, y_coords = zip(*points, strict=False)
         A = np.vstack([x_coords, np.ones(len(x_coords))]).T
         m_cor, c_cor = np.linalg.lstsq(A, y_coords, rcond=None)[0]
 
