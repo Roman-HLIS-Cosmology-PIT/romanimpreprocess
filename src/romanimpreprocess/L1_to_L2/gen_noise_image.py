@@ -21,8 +21,8 @@ import galsim
 import numpy as np
 import yaml
 from astropy.io import fits
-from GalPoisson.draw_with_tilnus import draw_from_Pearson
-from GalPoisson.find_tilnus import get_tilde_nus
+from .GalPoisson.draw_with_tilnus import draw_from_Pearson
+from .GalPoisson.find_tilnus import get_tilde_nus
 
 from .. import pars
 from ..from_sim.sim_to_isim import fill_in_refdata_and_1f
