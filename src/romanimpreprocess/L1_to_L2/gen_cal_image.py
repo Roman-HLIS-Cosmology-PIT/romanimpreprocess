@@ -486,6 +486,7 @@ def calibrateimage(config, verbose=True):
     # process information specific to this code
     processinfo = {
         "medsky": medsky,
+        "medgain": medgain,
         "skyorder": skyorder,
         "skycoefs": skycoefs,
         "ramp_opt_pars": uopt,
