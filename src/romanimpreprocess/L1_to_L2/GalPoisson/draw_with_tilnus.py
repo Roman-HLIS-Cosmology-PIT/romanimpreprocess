@@ -43,7 +43,7 @@ def draw_from_Pearson(
     if rng is None or not hasattr(rng, "random"):
         rng = np.random.default_rng(rng)
 
-    I_clipped = np.clip(np.asarray(I_arr, dtype=float), 3.0, None)
+    I_clipped = np.clip(np.asarray(I_arr, dtype=float), 0.01, None)
 
     tilnu_42 = 3 * tilnu_21**2
 

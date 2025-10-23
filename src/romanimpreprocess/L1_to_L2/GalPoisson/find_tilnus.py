@@ -57,7 +57,7 @@ def get_tilde_nus(N_beta, a_beta, W):
         :, ::-1
     ]  # Uses raw weights to generate the central moments of raw frames (ignoring I)
 
-    WT = np.dot(W, T[:, 1:])  # Uses input weights to help generate the
+    WT = np.dot(W, T[:, 1:])  # Useful variable to help generate nus from MA frames.
 
     nu_21 = np.sum(
         WT**2
@@ -76,6 +76,7 @@ def get_tilde_nus(N_beta, a_beta, W):
     return tilnu_21, tilnu_31, tilnu_41, tilnu_42
 
 
+'''
 # EXAMPLE INPUTS:
 """
 N_beta = np.array([4,4])
@@ -102,6 +103,4 @@ tilnu_21, tilnu_31, tilnu_41, tilnu_42 = get_tilde_nus(N_beta, a_beta, weights)
 print(f"𝜈̃₂₁ := {tilnu_21}")
 print(f"𝜈̃₃₁ := {tilnu_31}")
 print(f"𝜈̃₄₁ := {tilnu_41}")
-print(f"𝜈̃₄₂ := {tilnu_42}")
-
-# Seems like til{nu}_42 = 3 x til{nu}_21^2
+print(f"𝜈̃₄₂ := {tilnu_42}")'''

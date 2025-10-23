@@ -388,7 +388,7 @@ def test_run_all(tmp_path):
         "SKYORDER": 2,
         "FITSOUT": True,
         "NOISE": {
-            "LAYER": ["Rz4S2C1"],
+            "LAYER": ["Rz4S2C1", "O"],
             "TEMP": tmp_dir + f"/temp_{band:s}_{id:d}_{sca:d}.asdf",
             "SEED": 10000,
             "OUT": tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noise.asdf",
