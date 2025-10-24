@@ -207,7 +207,7 @@ def make_noise_cube(config, rng):
                 pixels = np.where(endslice == i)
 
                 noise_array[pixels] = draw_from_Pearson(
-                    tilnu21, tilnu31, tilnu41, tilnu42, gI[pixels], rng=rng.as_numpy_generator()
+                    tilnu21, tilnu31, tilnu41, gI[pixels], rng=rng.as_numpy_generator()
                 )
 
             diff[:, :] += noise_array / gain
