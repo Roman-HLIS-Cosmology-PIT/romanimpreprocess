@@ -194,6 +194,7 @@ def make_noise_cube(config, rng):
                     f_L2["processinfo"]["endslice"] > 0, f_L2["processinfo"]["endslice"], ngrp - 1
                 )
                 noise_array = np.zeros_like(endslice, dtype=np.float32)
+                t_fr = f_L2["roman"]["meta"]["exposure"]["frame_time"]
 
                 a_beta = np.empty(ngrp, dtype=int)
                 N_beta = np.empty(ngrp, dtype=int)
@@ -204,7 +205,15 @@ def make_noise_cube(config, rng):
             for i in range(start + 1, ngrp):
                 tilnu21, tilnu31, tilnu41, tilnu42 = get_tilde_nus(N_beta, a_beta, weightvecs[i])
 
+                # re-scale tilnu's from e/fr to e/s
+                tilnu21 *= t_fr
+                tilnu31 *= t_fr**2
+                tilnu41 *= t_fr**3
+                tilnu42 *= t_fr**2
+
                 pixels = np.where(endslice == i)
+                print("n pix", len(pixels[0]), len(pixels[1]), "tilnus", tilnu21, tilnu31, tilnu41)
+                sys.stdout.flush()
 
                 noise_array[pixels] = draw_from_Pearson(
                     tilnu21, tilnu31, tilnu41, gI[pixels], rng=rng.as_numpy_generator()
