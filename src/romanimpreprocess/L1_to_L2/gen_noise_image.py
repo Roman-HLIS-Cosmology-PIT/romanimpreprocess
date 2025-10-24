@@ -170,7 +170,11 @@ def make_noise_cube(config, rng):
             with asdf.open(config["CALDIR"]["gain"]) as g_:
                 gain = np.clip(g_["roman"]["data"], 1e-4, 1e4)  # prevent division by zero error
             with asdf.open(config["OUT"]) as f_orig:
-                gI = gain * np.copy(f_orig["roman"]["data_withsky"].value)
+                # trim if needed (removes reference pixels --- if gain is the full array, will have d=4)
+                d = (np.shape(gain)[-1] - np.shape(f_orig["roman"]["data_withsky"])[-1]) // 2
+                if d > 0:
+                    gain = gain[d:-d, d:-d]
+                gI = gain * f_orig["roman"]["data_withsky"].value
 
             # ramp-fitting weights
             ngrp = len(mytree["roman"]["meta"]["exposure"]["read_pattern"])
