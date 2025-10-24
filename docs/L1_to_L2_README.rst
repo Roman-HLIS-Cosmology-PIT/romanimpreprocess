@@ -217,6 +217,8 @@ The types of commands are:
 
   The noise can be clipped based on the median and interquartile range at some number of equivalent sigmas with the 'z' directive, e.g., ``'Raz4.5'`` will clip at 4.5 sigma. This is useful if you want to be able to feed another noise layer through the pipeline without re-computing the outlier mask, and thus it is recommended for use with feeding noise realizations to PyIMCOM, etc.
 
+* ``O``: Generate noise realizations intended for pseudo-Poisson bias corrections. To be used by Gabe et. al in prep. (Recommended to not turn on both O and P simultaneously.)
+
 * ``P``: Generate Poisson noise. This must come after ``R`` (if present). The variants of this command that are currently supported are:
 
   * ``Pbr`` : re-sampled Poisson noise with background (sky level) only.
@@ -232,3 +234,4 @@ The types of commands are:
   Of course, since this is a comment, you could also name them however you want as long as you don't use capital letters::
 
     LAYER: ['RS0Cmickey_mouse', 'RS0Cdonald_duck', 'RS0Cgoofy']
+

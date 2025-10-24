@@ -25,6 +25,8 @@ from astropy.io import fits
 from .. import pars
 from ..from_sim.sim_to_isim import fill_in_refdata_and_1f
 from ..utils import sky
+from .GalPoisson.draw_with_tilnus import draw_from_Pearson
+from .GalPoisson.find_tilnus import get_tilde_nus
 from .gen_cal_image import calibrateimage
 
 
@@ -161,6 +163,63 @@ def make_noise_cube(config, rng):
                 MED = np.percentile(diff, 50)
                 print("***", noiseflags, zclip, IQR, MED)
                 diff = np.clip(diff, MED - zclip * IQR / 1.34896, MED + zclip * IQR / 1.34896)
+
+        # Noise realizations for pseudo-Poisson noise bias corrections
+        if "O" in cmd:
+            # Get gain
+            with asdf.open(config["CALDIR"]["gain"]) as g_:
+                gain = np.clip(g_["roman"]["data"], 1e-4, 1e4)  # prevent division by zero error
+            with asdf.open(config["OUT"]) as f_orig:
+                # trim if needed (removes reference pixels --- if gain is the full array, will have d=4)
+                d = (np.shape(gain)[-1] - np.shape(f_orig["roman"]["data_withsky"])[-1]) // 2
+                if d > 0:
+                    gain = gain[d:-d, d:-d]
+                gI = gain * f_orig["roman"]["data_withsky"].value
+
+            # ramp-fitting weights
+            ngrp = len(mytree["roman"]["meta"]["exposure"]["read_pattern"])
+            weightvecs = [""] * ngrp
+            with asdf.open(config["OUT"]) as f_L2:
+                meta = f_L2["processinfo"]["meta"]
+                weightvecs[-1] = np.copy(f_L2["processinfo"]["weights"])
+                start = 0
+                if f_L2["processinfo"]["exclude_first"]:
+                    start = 1
+                for iend in range(start + 2, ngrp):
+                    Kt = np.zeros(ngrp, dtype=np.float32)
+                    Kt[iend - 1] = 1.0 / (meta["tbar"][iend - 1] - meta["tbar"][start])
+                    Kt[start] = -Kt[iend - 1]
+                    weightvecs[iend - 1] = Kt
+                endslice = np.where(
+                    f_L2["processinfo"]["endslice"] > 0, f_L2["processinfo"]["endslice"], ngrp - 1
+                )
+                noise_array = np.zeros_like(endslice, dtype=np.float32)
+                t_fr = f_L2["roman"]["meta"]["exposure"]["frame_time"]
+
+                a_beta = np.empty(ngrp, dtype=int)
+                N_beta = np.empty(ngrp, dtype=int)
+                for i in range(ngrp):
+                    a_beta[i] = f_L2["processinfo"]["meta"]["read_pattern"][i][0]
+                    N_beta[i] = len(f_L2["processinfo"]["meta"]["read_pattern"][i])
+
+            for i in range(start + 1, ngrp):
+                tilnu21, tilnu31, tilnu41, tilnu42 = get_tilde_nus(N_beta, a_beta, weightvecs[i])
+
+                # re-scale tilnu's from e/fr to e/s
+                tilnu21 *= t_fr
+                tilnu31 *= t_fr**2
+                tilnu41 *= t_fr**3
+                tilnu42 *= t_fr**2
+
+                pixels = np.where(endslice == i)
+                print("n pix", len(pixels[0]), len(pixels[1]), "tilnus", tilnu21, tilnu31, tilnu41)
+                sys.stdout.flush()
+
+                noise_array[pixels] = draw_from_Pearson(
+                    tilnu21, tilnu31, tilnu41, gI[pixels], rng=rng.as_numpy_generator()
+                )
+
+            diff[:, :] += noise_array / gain
 
         # Poisson noise simulated?
         if "P" in cmd:
