@@ -201,7 +201,7 @@ def make_noise_cube(config, rng):
                     a_beta[i] = f_L2["processinfo"]["meta"]["read_pattern"][i][0]
                     N_beta[i] = len(f_L2["processinfo"]["meta"]["read_pattern"][i])
 
-            for i in range(start+1, ngrp):
+            for i in range(start + 1, ngrp):
                 tilnu21, tilnu31, tilnu41, tilnu42 = get_tilde_nus(N_beta, a_beta, weightvecs[i])
 
                 pixels = np.where(endslice == i)
