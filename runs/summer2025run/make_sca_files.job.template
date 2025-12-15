@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=preproc
-#SBATCH --account=PCON0003
+#SBATCH --account=PAS2340
 #SBATCH --time=48:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=12
 
 # you can tell the script which SCA to use by setting:
 #
-# sbatch --export=USE_SCA=10 make_sca_files.job
+# sbatch --export=USE_SCA=07 make_sca_files_install.job
 #
 # (this way you don't need to modify the script to run any of the SCAs)
 # which SCA to use? (format: '01' .. '18' -- you are supposed to have the leading 0 for SCA<=9)
@@ -15,7 +15,7 @@
 # which read pattern to use? (format: string)
 export READ_PATTERN_NAME="IM_107_8"
 # tag for this set of files (should be the same for all the SCAs)
-export TAG="DUMMY20250521"
+export TAG="DUMMY20251211"
 
 # where we get the darks
 export DARK_DIR="/fs/scratch/PCON0003/cond0007/FPT-Darks"
@@ -24,11 +24,9 @@ export FLAT_DIR="/fs/scratch/PCON0003/cond0007/FPT-Flats"
 # where we get the low-intensity flats
 export LOFLAT_DIR="/fs/scratch/PCON0003/cond0007/FPT-LoFlats"
 # where we are sending the data
-export TARGET_DIR="/fs/scratch/PCON0003/cond0007/cal"
+export TARGET_DIR="/fs/scratch/PCON0003/cond0007/cal_fall25"
 # where these scripts are located
 export SCRIPT_DIR="/users/PCON0003/cond0007/imcom/romanimpreprocess/runs/summer2025run"
-# solid-waffle directory
-export SOLID_WAFFLE_DIR="/users/PCON0003/cond0007/solid-waffle"
 
 # tell the log some information
 echo "--- Environment variable ---"
@@ -39,7 +37,6 @@ echo "DARK_DIR" $DARK_DIR
 echo "FLAT_DIR" $FLAT_DIR
 echo "TARGET_DIR" $TARGET_DIR
 echo "SCRIPT_DIR" $SCRIPT_DIR
-echo "SOLID_WAFFLE_DIR" $SOLID_WAFFLE_DIR
 echo " "
 
 # make single FITS files of the darks and flats
@@ -52,7 +49,6 @@ python convert_loflt.py $LOFLAT_DIR 12 $TARGET_DIR $USE_SCA
 
 # set up solid-waffle
 # This is for using 50 exposures.
-cd $SCRIPT_DIR
 pwd
 echo "" > summary_files_$USE_SCA.txt; rm summary_files_$USE_SCA.txt # suppress warning
 perl write_solid-waffle_config.pl $TARGET_DIR $USE_SCA  1 10 > config1_$USE_SCA.txt
@@ -62,7 +58,6 @@ perl write_solid-waffle_config.pl $TARGET_DIR $USE_SCA 31 40 > config4_$USE_SCA.
 perl write_solid-waffle_config.pl $TARGET_DIR $USE_SCA 41 50 > config5_$USE_SCA.txt
 # run solid-waffle
 # This step can be parallelized
-cd $SOLID_WAFFLE_DIR
 python test_run.py $SCRIPT_DIR/config1_$USE_SCA.txt > $TARGET_DIR/sw-SCA$USE_SCA-P1.log &
 python test_run.py $SCRIPT_DIR/config2_$USE_SCA.txt > $TARGET_DIR/sw-SCA$USE_SCA-P2.log &
 python test_run.py $SCRIPT_DIR/config3_$USE_SCA.txt > $TARGET_DIR/sw-SCA$USE_SCA-P3.log &
@@ -73,16 +68,13 @@ wait
 rm $SCRIPT_DIR/config?_$USE_SCA.txt
 
 # now print the gain files
-cd $SCRIPT_DIR
 pwd
 python make_gain_file.py summary_files_$USE_SCA.txt $USE_SCA $TARGET_DIR/roman_wfi_gain_$TAG\_SCA$USE_SCA.asdf
 # this is no longer needed
 rm summary_files_$USE_SCA.txt
 
 # run the noise script
-cd $SOLID_WAFFLE_DIR
-pwd
-python noise_run.py -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits -o $TARGET_DIR/noise_SCA$USE_SCA.fits -n 100 -t 2 -cd 5.0 -rh 7 -tn 34 -ro
+python -m solid_waffle.noise_run -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits -o $TARGET_DIR/noise_SCA$USE_SCA.fits -n 100 -t 2 -cd 5.0 -rh 7 -tn 34 -ro
 # here:
 # 6 = file format (consistent with FPS)
 # $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits = name of first noise file
@@ -95,25 +87,20 @@ python noise_run.py -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits -o 
 # -ro = include reference output in build
 
 # and generate histograms for the DNL
-python histograms.py -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits -o $TARGET_DIR/histD_SCA$USE_SCA.dat -n 100
-python histograms.py -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_LoFlat_001.fits -o $TARGET_DIR/histG_SCA$USE_SCA.dat -n 30
-python histograms.py -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_Flat_001.fits -o $TARGET_DIR/histF_SCA$USE_SCA.dat -n 50
+python -m solid_waffle.histograms -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits -o $TARGET_DIR/histD_SCA$USE_SCA.dat -n 100
+python -m solid_waffle.histograms -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_LoFlat_001.fits -o $TARGET_DIR/histG_SCA$USE_SCA.dat -n 30
+python -m solid_waffle.histograms -f 6 -i $TARGET_DIR/99999999_SCA$USE_SCA\_Flat_001.fits -o $TARGET_DIR/histF_SCA$USE_SCA.dat -n 50
 
 # build the dark file
-cd $SCRIPT_DIR
 pwd
 python make_dark_file.py IM_107_8 $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits $TARGET_DIR/noise_SCA$USE_SCA.fits $USE_SCA $TARGET_DIR/roman_wfi_dark_$TAG\_SCA$USE_SCA.asdf
 
 # build the linearity files
-cd $SCRIPT_DIR
 pwd
 perl write_linearity_config.pl $TARGET_DIR $USE_SCA $TAG > linearity_pars_$USE_SCA.json
-cd $SOLID_WAFFLE_DIR
-pwd
-python linearity_run.py $SCRIPT_DIR/linearity_pars_$USE_SCA.json
+python -m solid_waffle.linearity_run $SCRIPT_DIR/linearity_pars_$USE_SCA.json
 
 # post-process these to get pflat and saturation
-cd $SCRIPT_DIR
 pwd
 python postprocess_calfiles.py $TARGET_DIR/roman_wfi_linearitylegendre_$TAG\_SCA$USE_SCA.asdf $USE_SCA $READ_PATTERN_NAME
 python makemask.py $TARGET_DIR/roman_wfi_mask_$TAG\_SCA$USE_SCA.asdf $USE_SCA $READ_PATTERN_NAME
