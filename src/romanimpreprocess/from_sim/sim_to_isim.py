@@ -585,7 +585,6 @@ class Image2D:
                 rng=rng,
                 usecrds=False,
                 darkrate=refdata["dark"],
-                stpsf=False,
                 flat=refdata["flat"],
                 psf_keywords=dict(),
             )
@@ -617,7 +616,6 @@ class Image2D:
                 rng=rng,
                 usecrds=False,
                 darkrate=this_dark,
-                stpsf=False,
                 flat=this_flat,
                 psf_keywords=dict(),
             )
