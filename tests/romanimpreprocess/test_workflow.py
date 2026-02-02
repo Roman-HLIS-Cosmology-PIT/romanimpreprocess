@@ -497,8 +497,8 @@ def test_flip(tmp_path):
         points_new = wcs_new.all_world2pix(points_sky, 0)
         print(points_new)
         points_compare = np.copy(points_orig)
-        points_compare[:, 1] = 4087.0 - points_compare[:, 1]
+        points_compare[:, 0] = 4087.0 - points_compare[:, 0]
         print(np.abs(points_compare - points_new))
         err = np.amax(np.abs(points_compare - points_new))
         print(err)
-        assert err < -1.0
+        assert err < 1.0e-4
