@@ -3,6 +3,7 @@
 import numpy as np
 from romanimpreprocess.utils.bitutils import convert_uint32_to_bits
 
+
 def test_reorder():
     """Test of bit reordering."""
 
