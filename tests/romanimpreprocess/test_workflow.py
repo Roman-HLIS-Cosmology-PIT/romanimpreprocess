@@ -10,7 +10,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from romanimpreprocess.from_sim import sim_to_isim
 from romanimpreprocess.L1_to_L2 import gen_cal_image, gen_noise_image
-from romanimpreprocess.utils import ipc_linearity, maskhandling
+from romanimpreprocess.utils import ipc_linearity, maskhandling, visualize
 
 # Settings for this test
 id = 163
@@ -467,6 +467,10 @@ def test_run_all(tmp_path):
     # some quality checks on unmasked pixels
     assert np.count_nonzero(np.abs(x) > 100) < 50
     assert np.count_nonzero(np.logical_and(np.abs(x) > 20, expected_signal < 1)) < 50
+
+    # check that we can convert the output to PDF
+    visualize.visualize([tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}.asdf", "128,256,512,640", tmp_dir + "/out_im2.pdf", 0.5])
+    assert os.exists(tmp_dir + "/out_im2.pdf")
 
 
 def test_flip(tmp_path):
