@@ -64,7 +64,21 @@ def test_simple(tmp_path):
     with asdf.open(tmpdir + "/sim2.asdf") as f:
         # print(f.info())
         print("corners:")
-        print(f["roman"]["meta"]["wcs"]((0, 0, 4087, 4087), (0, 4087, 0, 4087)))
+        ra, dec = f["roman"]["meta"]["wcs"]((0, 0, 4087, 4087), (0, 4087, 0, 4087))
+        print(ra, dec)
         fits.PrimaryHDU(f["roman"]["data"]).writeto(tmpdir + "/L2.fits", overwrite=True)
+        compare_ra = np.array([11.14086839, 11.11211011, 10.97281255, 10.94437077])
+        compare_dec = np.array([-43.51997999, -43.40200135, -43.54237393, -43.42435344])
+        assert np.amax(np.abs(compare_ra - ra)) < 1.0e-5
+        assert np.amax(np.abs(compare_dec - dec)) < 1.0e-5
+
+    # Check one star
+    xs = 843
+    ys = 3629
+    with fits.open(EXAMPLE_FILE) as forig, fits.open(tmpdir + "/L2.fits") as fnew:
+        postageorig = forig[ys-3:ys+4, xs-3:xs+4][::-1, :]
+        postagenew = fnew[4087-ys-3:4087-ys+4, xs-3:xs+4]
+        print(postageorig)
+        print(postagenew)
 
     assert use_read_pattern[0][0] == -1  # will fail so we can get the print statements
