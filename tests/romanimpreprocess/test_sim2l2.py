@@ -1,8 +1,8 @@
 """A simple test of sim->L2."""
 
 import asdf
-from astropy.io import fits
 import numpy as np
+from astropy.io import fits
 from romanimpreprocess.from_sim.sim_to_isim import Image2D, Image2D_from_L1
 
 EXAMPLE_FILE = (
@@ -76,8 +76,8 @@ def test_simple(tmp_path):
     xs = 843
     ys = 3629
     with fits.open(EXAMPLE_FILE) as forig, fits.open(tmpdir + "/L2.fits") as fnew:
-        postageorig = forig[ys-3:ys+4, xs-3:xs+4][::-1, :]
-        postagenew = fnew[4087-ys-3:4087-ys+4, xs-3:xs+4]
+        postageorig = forig[0].data[ys - 3 : ys + 4, xs - 3 : xs + 4][::-1, :]
+        postagenew = fnew[0].data[4087 - ys - 3 : 4087 - ys + 4, xs - 3 : xs + 4]
         print(postageorig)
         print(postagenew)
 
