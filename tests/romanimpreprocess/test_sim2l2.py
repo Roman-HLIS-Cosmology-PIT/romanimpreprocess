@@ -5,6 +5,7 @@ import numpy as np
 from astropy.io import fits
 from romanimpreprocess import pars
 from romanimpreprocess.from_sim.sim_to_isim import Image2D, Image2D_from_L1
+from romanisim import parameters
 
 EXAMPLE_FILE = (
     "https://github.com/Roman-HLIS-Cosmology-PIT/romanimpreprocess/wiki/test-files/"
@@ -78,13 +79,13 @@ def test_simple(tmp_path):
     ys = 3629
     with fits.open(EXAMPLE_FILE) as forig, fits.open(tmpdir + "/L2.fits") as fnew:
         postageorig = forig[0].data[ys - 3 : ys + 4, xs - 3 : xs + 4][::-1, :]
-        postageorig /= forig[0].header["EXPTIME"] * pars.g_ideal
+        postageorig /= forig[0].header["EXPTIME"] * parameters.reference_data["gain"]
         postagenew = fnew[0].data[4087 - ys - 3 : 4087 - ys + 4, xs - 3 : xs + 4]
         postagenew -= np.median(fnew[0].data)
         print(postageorig)
         print(postagenew)
         print("")
         print(postagenew - postageorig)
-        print(np.count_nonzero(np.abs(postagenew - postageorig)) > 0.5)
+        print(np.count_nonzero(np.abs(postagenew - postageorig)) > 0.2)
 
     assert use_read_pattern[0][0] == -1  # will fail so we can get the print statements
