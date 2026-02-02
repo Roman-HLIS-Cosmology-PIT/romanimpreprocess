@@ -594,7 +594,7 @@ class Image2D:
             this_flat = 1.0 * np.ones(
                 (nside_sub, nside_sub), dtype=np.float32
             )  # dummy, prevent an error later
-            g = pars.g_ideal * np.ones(
+            g = parameters.reference_data["gain"] * np.ones(
                 (nside_sub, nside_sub), dtype=np.float32
             )  # dummy, prevent an error later
         else:
