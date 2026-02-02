@@ -78,7 +78,7 @@ def test_simple(tmp_path):
     ys = 3629
     with fits.open(EXAMPLE_FILE) as forig, fits.open(tmpdir + "/L2.fits") as fnew:
         postageorig = forig[0].data[ys - 3 : ys + 4, xs - 3 : xs + 4][::-1, :]
-        postageorig /= forig[0].header["EXPTIME"] * parameters.reference_data["gain"]
+        postageorig /= forig[0].header["EXPTIME"] * float(parameters.reference_data["gain"])
         postagenew = fnew[0].data[4087 - ys - 3 : 4087 - ys + 4, xs - 3 : xs + 4]
         postagenew -= np.median(fnew[0].data)
         print(postageorig)
