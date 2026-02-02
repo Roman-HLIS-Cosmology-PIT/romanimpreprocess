@@ -49,7 +49,7 @@ def test_simple(tmp_path):
     x.L1_write_to(tmpdir + "/sim1.asdf")
     x.L2_write_to(tmpdir + "/sim2-direct.asdf")
 
-    with asdf.open("sim1.asdf") as f:
+    with asdf.open(tmpdir + "/sim1.asdf") as f:
         # print(f.info())
         print("corners:")
         print(f["romanisim"]["wcs"])
