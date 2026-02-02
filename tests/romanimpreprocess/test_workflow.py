@@ -9,7 +9,7 @@ import asdf
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
-from romanimpreprocess.from_sim import hdu_sip_flip, sim_to_isim
+from romanimpreprocess.from_sim import sim_to_isim
 from romanimpreprocess.L1_to_L2 import gen_cal_image, gen_noise_image
 from romanimpreprocess.utils import ipc_linearity, maskhandling
 
@@ -481,7 +481,7 @@ def test_flip(tmp_path):
         my_hdu = copy.deepcopy(f[0])
 
     # Now the flipped image
-    hdu_sip_flip(my_hdu.data, my_hdu.header)
+    sim_to_isim.hdu_sip_flip(my_hdu.data, my_hdu.header)
     my_hdu.writeto(tmpdir + "/test2.fits", overwrite=True)
 
     with fits.open(tmpdir + "/test1.fits"), fits.open(tmpdir + "/test2.fits") as f_orig, f_new:
@@ -493,7 +493,7 @@ def test_flip(tmp_path):
         wcs_new = WCS(f_new[0].header)
 
         # map points
-        points_orig = np.array([[100., 250.], [3000., 800.]])
+        points_orig = np.array([[100.0, 250.0], [3000.0, 800.0]])
         points_sky = wcs_orig.all_pix2world(points_orig, 0)
         points_new = wcs_new.all_world2pix(points_sky, 0)
         print(points_new)
