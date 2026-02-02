@@ -15,6 +15,7 @@ plt.switch_backend("agg")
 
 import matplotlib.colors as colors  # noqa: E402
 
+
 def visualize(argv):
     """
     Visualizes a block of an ASDF file.
@@ -42,8 +43,8 @@ def visualize(argv):
     xmax = int(bounds[1])
     ymin = int(bounds[2])
     ymax = int(bounds[3])
-    dx = xmax - xmin + 1
-    dy = ymax - ymin + 1
+    # dx = xmax - xmin + 1
+    # dy = ymax - ymin + 1
 
     with asdf.open(argv[1]) as f:
         data = f["roman"]["data"][:, ymin : ymax + 1, xmin : xmax + 1].astype(np.float32)
