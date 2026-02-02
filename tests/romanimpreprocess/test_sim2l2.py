@@ -5,7 +5,6 @@ from astropy.io import fits
 import numpy as np
 from romanimpreprocess.from_sim.sim_to_isim import Image2D, Image2D_from_L1
 
-
 EXAMPLE_FILE = (
     "https://github.com/Roman-HLIS-Cosmology-PIT/romanimpreprocess/wiki/test-files/"
     "Roman_WAS_truth_H158_887_11.fits.gz"
