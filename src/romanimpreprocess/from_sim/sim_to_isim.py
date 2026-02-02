@@ -591,8 +591,12 @@ class Image2D:
                 psf_keywords=dict(),
             )
             nside_sub = pars.nside - 2 * nborder
-            this_flat = 1.0 * np.ones((nside_sub, nside_sub), dtype=np.float32)  # dummy, prevent an error later
-            g = pars.g_ideal * np.ones((nside_sub, nside_sub), dtype=np.float32)  # dummy, prevent an error later
+            this_flat = 1.0 * np.ones(
+                (nside_sub, nside_sub), dtype=np.float32
+            )  # dummy, prevent an error later
+            g = pars.g_ideal * np.ones(
+                (nside_sub, nside_sub), dtype=np.float32
+            )  # dummy, prevent an error later
         else:
             # get dark current in DN/p/s
             with asdf.open(caldir["dark"]) as f:
