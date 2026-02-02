@@ -45,7 +45,7 @@ def test_simple(tmp_path):
     print(x.galsimwcs)
     print(x.date, x.idsca)
     print(">>", x.image)
-    x.simulate(use_read_pattern)
+    x.simulate(use_read_pattern, includewcs=True)
     x.L1_write_to(tmpdir + "/sim1.asdf")
     x.L2_write_to(tmpdir + "/sim2-direct.asdf")
 
