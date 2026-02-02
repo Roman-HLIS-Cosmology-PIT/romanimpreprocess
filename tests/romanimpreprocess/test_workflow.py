@@ -484,7 +484,7 @@ def test_flip(tmp_path):
     sim_to_isim.hdu_sip_flip(my_hdu.data, my_hdu.header)
     my_hdu.writeto(tmpdir + "/test2.fits", overwrite=True)
 
-    with fits.open(tmpdir + "/test1.fits"), fits.open(tmpdir + "/test2.fits") as f_orig, f_new:
+    with fits.open(tmpdir + "/test1.fits") as f_orig, fits.open(tmpdir + "/test2.fits") as f_new:
         diff = f_orig[0].data - f_new[0].data[:, ::-1]
         assert np.amax(np.abs(diff)) < 1.0e-7
 
