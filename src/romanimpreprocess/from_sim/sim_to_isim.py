@@ -513,7 +513,7 @@ class Image2D:
         self.dec_ = float(self.header["DEC_TARG"])
         self.pa_ = float(self.header["PA_OBSY"])
 
-    def simulate(self, use_read_pattern, caldir=None, config={}, seed=43):
+    def simulate(self, use_read_pattern, caldir=None, config={}, seed=43, includewcs=False):
         """
         Performs Level 1 & 2 simulations.
 
@@ -531,6 +531,8 @@ class Image2D:
             Configuration file (usually expanded from YAML).
         seed : int, optional
             Random number seed.
+        includewcs : bool, optional
+            If True, includes the GWCS in the output file.
 
         Returns
         -------
@@ -688,6 +690,10 @@ class Image2D:
         # Create metadata for simulation parameter
         romanisimdict = {"version": rstversion}
         # for storage reasons, I took out all the large metadata arrays in romanisimdict
+
+        # include the gwcs
+        if includewcs:
+            romanisimdict["wcs"] = wcs.wcs_from_fits_header(self.header)
 
         # Write file
         self.af = asdf.AsdfFile()
