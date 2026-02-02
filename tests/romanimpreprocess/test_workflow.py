@@ -472,13 +472,13 @@ def test_run_all(tmp_path):
     visualize.visualize(
         [
             None,
-            tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}.asdf",
+            tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_{sca:d}.asdf",
             "128,256,512,640",
-            tmp_dir + "/out_im2.pdf",
+            tmp_dir + "/out_im1.pdf",
             0.5,
         ]
     )
-    assert os.exists(tmp_dir + "/out_im2.pdf")
+    assert os.exists(tmp_dir + "/out_im1.pdf")
 
 
 def test_flip(tmp_path):
