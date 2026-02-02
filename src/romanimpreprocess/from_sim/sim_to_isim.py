@@ -598,9 +598,7 @@ class Image2D:
                 _g = float(parameters.reference_data["gain"])
             except:
                 _g = float(parameters.reference_data["gain"].value)
-            g = _g * np.ones(
-                (nside_sub, nside_sub), dtype=np.float32
-            )  # dummy, prevent an error later
+            g = _g * np.ones((nside_sub, nside_sub), dtype=np.float32)  # dummy, prevent an error later
         else:
             # get dark current in DN/p/s
             with asdf.open(caldir["dark"]) as f:
