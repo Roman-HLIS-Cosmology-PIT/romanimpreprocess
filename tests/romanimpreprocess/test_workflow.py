@@ -477,7 +477,7 @@ def test_flip(tmp_path):
     # Note this makes a header with SIP coefficients.
     tmpdir = str(tmp_path)
     genfile(tmpdir + "/test1.fits", v=1)
-    with fits.open(tmpdir + "/test1.fits") as f:
+    with fits.open(tmpdir + "/test1.fits", memmap=False, lazy_load_hdus=False) as f:
         my_hdu = copy.deepcopy(f[0])
 
     # Now the flipped image
