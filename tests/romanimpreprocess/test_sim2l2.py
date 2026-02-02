@@ -3,7 +3,6 @@
 import asdf
 import numpy as np
 from astropy.io import fits
-from romanimpreprocess import pars
 from romanimpreprocess.from_sim.sim_to_isim import Image2D, Image2D_from_L1
 from romanisim import parameters
 
