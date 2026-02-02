@@ -91,4 +91,5 @@ def test_simple(tmp_path):
         print(postagenew - postageorig)
         print(np.count_nonzero(np.abs(postagenew - postageorig) > 0.2))
 
-    assert use_read_pattern[0][0] == -1  # will fail so we can get the print statements
+    assert np.count_nonzero(np.abs(postagenew - postageorig) > 0.4) <= 3
+    assert np.count_nonzero(np.abs(postagenew - postageorig) > 0.2) <= 10
