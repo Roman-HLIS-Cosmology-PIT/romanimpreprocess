@@ -23,7 +23,7 @@ def visualize(argv):
     Parameters
     ----------
     argv : list
-        List of arguments: [input_file, "xmin,xmax,ymin,ymax", outfile.pdf, percentile_cut (optional)]
+        List of arguments: [dummy, input_file, "xmin,xmax,ymin,ymax", outfile.pdf, percentile_cut (optional)]
 
     Returns
     -------
