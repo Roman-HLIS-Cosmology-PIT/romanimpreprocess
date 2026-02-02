@@ -596,7 +596,7 @@ class Image2D:
             )  # dummy, prevent an error later
             try:
                 _g = float(parameters.reference_data["gain"])
-            except:
+            except TypeError:
                 _g = float(parameters.reference_data["gain"].value)
             g = _g * np.ones((nside_sub, nside_sub), dtype=np.float32)  # dummy, prevent an error later
         else:
