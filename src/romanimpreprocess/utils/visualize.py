@@ -15,8 +15,21 @@ plt.switch_backend("agg")
 
 import matplotlib.colors as colors  # noqa: E402
 
-if __name__ == "__main__":
-    if len(sys.argv) < 4:
+def visualize(argv):
+    """
+    Visualizes a block of an ASDF file.
+
+    Parameters
+    ----------
+    argv : list
+        List of arguments: [input_file, "xmin,xmax,ymin,ymax", outfile.pdf, percentile_cut (optional)]
+
+    Returns
+    -------
+    None
+    """
+
+    if len(argv) < 4:
         print("This is a simple visualization script.")
         print(
             "Calling format: python visualize.py infile.asdf "
@@ -24,7 +37,7 @@ if __name__ == "__main__":
         )
         exit()
 
-    bounds = sys.argv[2].split(",")
+    bounds = argv[2].split(",")
     xmin = int(bounds[0])
     xmax = int(bounds[1])
     ymin = int(bounds[2])
@@ -32,7 +45,7 @@ if __name__ == "__main__":
     dx = xmax - xmin + 1
     dy = ymax - ymin + 1
 
-    with asdf.open(sys.argv[1]) as f:
+    with asdf.open(argv[1]) as f:
         data = f["roman"]["data"][:, ymin : ymax + 1, xmin : xmax + 1].astype(np.float32)
     ng = np.shape(data)[0]
 
@@ -40,8 +53,8 @@ if __name__ == "__main__":
     F = plt.figure(figsize=(3.5 * ng, 6))
 
     percentile_cut = 2.0
-    if len(sys.argv) > 4:
-        percentile_cut = float(sys.argv[4])
+    if len(argv) > 4:
+        percentile_cut = float(argv[4])
 
     # the main images
     vmin = np.percentile(data, percentile_cut)
@@ -95,3 +108,7 @@ if __name__ == "__main__":
     F.set_tight_layout(True)
     F.savefig(sys.argv[3])
     plt.close(F)
+
+
+if __name__ == "__main__":
+    visualize(sys.argv)
