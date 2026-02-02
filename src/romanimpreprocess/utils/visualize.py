@@ -107,7 +107,7 @@ def visualize(argv):
         F.colorbar(im, orientation="vertical", fraction=0.046, pad=0.04)
 
     F.set_tight_layout(True)
-    F.savefig(sys.argv[3])
+    F.savefig(argv[3])
     plt.close(F)
 
 
