@@ -2,12 +2,14 @@
 
 
 import contextlib
+import copy
 import os
 
 import asdf
 import numpy as np
 from astropy.io import fits
-from romanimpreprocess.from_sim import sim_to_isim
+from astropy.wcs import WCS
+from romanimpreprocess.from_sim import hdu_sip_flip, sim_to_isim
 from romanimpreprocess.L1_to_L2 import gen_cal_image, gen_noise_image
 from romanimpreprocess.utils import ipc_linearity, maskhandling
 
@@ -468,5 +470,36 @@ def test_run_all(tmp_path):
     assert np.count_nonzero(np.logical_and(np.abs(x) > 20, expected_signal < 1)) < 50
 
 
-# if __name__ == "__main__":
-#     test_run_all("out") # <-- comment out in final version
+def test_flip(tmp_path):
+    """Test of flipping the SCA."""
+
+    # Build the data.
+    # Note this makes a header with SIP coefficients.
+    tmpdir = str(tmp_path)
+    genfile(tmpdir + "/test1.fits", v=1)
+    with fits.open(tmpdir + "/test1.fits") as f:
+        my_hdu = copy.deepcopy(f[0])
+
+    # Now the flipped image
+    hdu_sip_flip(my_hdu.data, my_hdu.header)
+    my_hdu.writeto(tmpdir + "/test2.fits", overwrite=True)
+
+    with fits.open(tmpdir + "/test1.fits"), fits.open(tmpdir + "/test2.fits") as f_orig, f_new:
+        diff = f_orig[0].data - f_new[0].data[:, ::-1]
+        assert np.amax(np.abs(diff)) < 1.0e-7
+
+        # WCSs
+        wcs_orig = WCS(f_orig[0].header)
+        wcs_new = WCS(f_new[0].header)
+
+        # map points
+        points_orig = np.array([[100., 250.], [3000., 800.]])
+        points_sky = wcs_orig.all_pix2world(points_orig, 0)
+        points_new = wcs_new.all_world2pix(points_sky, 0)
+        print(points_new)
+        points_compare = np.copy(points_orig)
+        points_compare[:, 1] = 4087.0 - points_compare[:, 1]
+        print(np.abs(points_compare - points_new))
+        err = np.amax(np.abs(points_compare - points_new))
+        print(err)
+        assert err < -1.0
