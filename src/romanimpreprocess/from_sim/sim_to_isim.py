@@ -898,53 +898,6 @@ class Image2D_from_L1(Image2D):
         self.af2.tree = {"roman": im2, "romanisim": romanisimdict2}
 
 
-def simpletest():
-    """
-    This is a simple script to convert Roman to L1/L2.
-    For internal testing only, not production.
-    """
-
-    use_read_pattern = [
-        [0],
-        [1],
-        [2, 3],
-        [4, 5, 6, 7, 8, 9],
-        [10, 11, 12, 13, 14, 15],
-        [16, 17, 18, 19, 20, 21, 22, 23],
-        [24, 25, 26, 27, 28, 29, 30, 31, 32, 33],
-        [34],
-    ]
-
-    x = Image2D(
-        "anlsim",
-        fname="/fs/scratch/PCON0003/cond0007/anl-run-in-prod/truth/Roman_WAS_truth_F184_14747_10.fits",
-    )
-    print(x.galsimwcs)
-    print(x.date, x.idsca)
-    print(">>", x.image)
-    x.simulate(use_read_pattern)
-    x.L1_write_to("sim1.asdf")
-    x.L2_write_to("sim2-direct.asdf")
-
-    f = asdf.open("sim1.asdf")
-    print(f.info())
-    print("corners:")
-    print(f["romanisim"]["wcs"])
-    print(f["romanisim"]["wcs"]((0, 0, 4087, 4087), (0, 4087, 0, 4087)))
-    print(f["roman"]["meta"])
-    fits.PrimaryHDU(f["roman"]["data"]).writeto("L1.fits", overwrite=True)
-
-    with Image2D_from_L1("sim1.asdf", x.refdata, x.header) as ff:
-        ff.pseudocalibrate()
-        ff.L2_write_to("sim2.asdf")
-
-    f = asdf.open("sim2.asdf")
-    print(f.info())
-    print("corners:")
-    print(f["roman"]["meta"]["wcs"]((0, 0, 4087, 4087), (0, 4087, 0, 4087)))
-    fits.PrimaryHDU(f["roman"]["data"]).writeto("L2.fits", overwrite=True)
-
-
 def run_config(config):
     """
     This allows the L1 image construction to be called as a Python function instead of a
@@ -995,8 +948,6 @@ def run_config(config):
                 image_out[:, :, : pars.nside] = f["roman"]["data"]
                 image_out[:, :, pars.nside :] = f["roman"]["amp33"]
                 fits.PrimaryHDU(image_out).writeto(config["OUT"][:-5] + "_asdf_to.fits", overwrite=True)
-
-    # simpletest()
 
 
 if __name__ == "__main__":
