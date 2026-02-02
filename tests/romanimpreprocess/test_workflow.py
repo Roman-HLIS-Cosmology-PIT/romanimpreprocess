@@ -480,7 +480,7 @@ def test_flip(tmp_path):
         my_hdu = fits.PrimaryHDU(f[0].data, header=f[0].header.copy())
 
     # Now the flipped image
-    sim_to_isim.hdu_sip_flip(my_hdu.data, my_hdu.header)
+    sim_to_isim.hdu_sip_hflip(my_hdu.data, my_hdu.header)
     my_hdu.writeto(tmpdir + "/test2.fits", overwrite=True)
 
     with fits.open(tmpdir + "/test1.fits") as f_orig, fits.open(tmpdir + "/test2.fits") as f_new:
