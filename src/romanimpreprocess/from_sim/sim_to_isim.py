@@ -818,7 +818,7 @@ class Image2D_from_L1(Image2D):
         self.refdata = refdata
         self.thewcs = thewcs
 
-    def psuedocalibrate(self):
+    def pseudocalibrate(self):
         """Generates a simple calibrated (L2) image.
 
         This doesn't use romancal, but can be useful as a pass-through function.
