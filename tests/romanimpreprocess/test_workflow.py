@@ -2,7 +2,6 @@
 
 
 import contextlib
-import copy
 import os
 
 import asdf
@@ -478,7 +477,7 @@ def test_flip(tmp_path):
     tmpdir = str(tmp_path)
     genfile(tmpdir + "/test1.fits", v=1)
     with fits.open(tmpdir + "/test1.fits", memmap=False, lazy_load_hdus=False) as f:
-        my_hdu = copy.deepcopy(f[0])
+        my_hdu = fits.PrimaryHDU(f[0].data, header=f[0].header.copy())
 
     # Now the flipped image
     sim_to_isim.hdu_sip_flip(my_hdu.data, my_hdu.header)
