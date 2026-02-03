@@ -58,7 +58,19 @@ def test_simple(tmp_path):
     print(x.galsimwcs)
     print(x.date, x.idsca)
     print(">>", x.image)
-    x.simulate(use_read_pattern, includewcs=True)
+    try:
+        x.simulate(use_read_pattern, includewcs=True)
+    except FileNotFoundError:
+        print("== ** PATH INFORMATION ** ==")
+        print("STPSF_PATH:", os.getenv("STPSF_PATH"))
+        pth = os.getenv("STPSF_PATH")
+        print(pth)
+        ifile = Path(pth) / "version.txt"
+        print(ifile)
+        with open(ifile) as f:
+            print(f.readlines())
+        print(" ")
+        raise Exception("Oops, I couldn't find the data.")
     x.L1_write_to(tmpdir + "/sim1.asdf")
     x.L2_write_to(tmpdir + "/sim2-direct.asdf")
 
