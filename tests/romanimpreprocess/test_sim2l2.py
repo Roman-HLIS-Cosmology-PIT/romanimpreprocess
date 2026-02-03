@@ -1,8 +1,5 @@
 """A simple test of sim->L2."""
 
-import os
-from pathlib import Path
-
 import asdf
 import numpy as np
 from astropy.io import fits
