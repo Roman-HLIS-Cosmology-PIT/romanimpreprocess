@@ -39,12 +39,12 @@ jobs:
         gunzip minimal_stpsf-data-2.1.0.tar.gz
         tar -xf minimal_stpsf-data-2.1.0.tar
         mv stpsf-data $RUNNER_TEMP/
-        export STPSF_PATH=$RUNNER_TEMP/stpsf-data
-        # The below are just for testing
-        echo $STPSF_PATH
-        ls $STPSF_PATH
+        # export STPSF_PATH=$RUNNER_TEMP/stpsf-data
+        echo "STPSF_PATH=$RUNNER_TEMP/stpsf-data" >> $GITHUB_ENV
     - name: Run unit tests with pytest
       run: |
+        echo $STPSF_PATH
+        ls $STPSF_PATH
         python -m pytest --cov=romanimpreprocess --cov-report=xml
     - name: Upload coverage report to codecov
       uses: codecov/codecov-action@v5
