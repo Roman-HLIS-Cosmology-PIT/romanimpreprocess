@@ -1,10 +1,12 @@
 """A simple test of sim->L2."""
 
+import os
+from pathlib import Path
+
 import asdf
 import numpy as np
 import os
 from astropy.io import fits
-from pathlib import Path
 from romanimpreprocess import pars
 from romanimpreprocess.from_sim.sim_to_isim import Image2D, Image2D_from_L1
 
@@ -60,7 +62,7 @@ def test_simple(tmp_path):
     print(">>", x.image)
     try:
         x.simulate(use_read_pattern, includewcs=True)
-    except Exception:
+    except Exception as e:
         print("== ** PATH INFORMATION ** ==")
         print("STPSF_PATH:", os.getenv("STPSF_PATH"))
         pth = os.getenv("STPSF_PATH")
@@ -70,7 +72,7 @@ def test_simple(tmp_path):
         with open(ifile) as f:
             print(f.readlines())
         print(" ")
-        raise Exception("Oops, I couldn't find the data.")
+        raise Exception("Oops, I couldn't find the data.") from e
     x.L1_write_to(tmpdir + "/sim1.asdf")
     x.L2_write_to(tmpdir + "/sim2-direct.asdf")
 
