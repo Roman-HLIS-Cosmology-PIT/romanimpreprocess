@@ -478,7 +478,7 @@ def test_run_all(tmp_path):
             0.5,
         ]
     )
-    assert os.exists(tmp_dir + "/out_im1.pdf")
+    assert os.path.exists(tmp_dir + "/out_im1.pdf")
 
 
 def test_flip(tmp_path):
