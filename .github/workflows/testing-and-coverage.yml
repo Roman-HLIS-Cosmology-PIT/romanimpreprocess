@@ -38,11 +38,8 @@ jobs:
           -o minimal_stpsf-data-2.1.0.tar.gz
         gunzip minimal_stpsf-data-2.1.0.tar.gz
         tar -xf minimal_stpsf-data-2.1.0.tar
-        pwd
-        ls -alt
-        echo ""
         mv stpsf-data $RUNNER_TEMP/
-        setenv STPSF_PATH=$RUNNER_TEMP/stpsf-data
+        export STPSF_PATH=$RUNNER_TEMP/stpsf-data
         # The below are just for testing
         echo $STPSF_PATH
         ls $STPSF_PATH
