@@ -31,6 +31,7 @@ Image2D_from_L1
 """
 
 import copy
+import inspect
 import re
 import sys
 import warnings
@@ -580,6 +581,9 @@ class Image2D:
         nborder = parameters.nborder
 
         # simulate a blank image
+        # note that newer versions of romanisim need psftype, but older ones don't, so
+        # this should be OK either way?
+        psfpar = {"psftype": "galsim"} if "galsim" in inspect.signature(rimage.simulate_counts).parameters else dict()
         if caldir is None:
             counts, simcatobj = rimage.simulate_counts(
                 image_mod.meta,
@@ -589,6 +593,7 @@ class Image2D:
                 darkrate=refdata["dark"],
                 flat=refdata["flat"],
                 psf_keywords=dict(),
+                **psfpar
             )
             nside_sub = pars.nside - 2 * nborder
             this_flat = 1.0 * np.ones(
@@ -629,6 +634,7 @@ class Image2D:
                 darkrate=this_dark,
                 flat=this_flat,
                 psf_keywords=dict(),
+                **psfpar
             )
         util.update_pointing_and_wcsinfo_metadata(image_mod.meta, counts.wcs)
 
