@@ -583,12 +583,13 @@ class Image2D:
         # simulate a blank image
         # note that newer versions of romanisim need psftype, but older ones don't, so
         # this should be OK either way?
-        psfpar = (
-            {"psftype": "galsim"}
-            if "psftype" in inspect.signature(rimage.simulate_counts).parameters
-            else dict()
-        )
-        print("ARGUMENTS =", inspect.signature(rimage.simulate_counts).parameters)
+        psfpar = dict()
+        args = inspect.signature(rimage.simulate_counts).parameters
+        choices = {"psftype": "galsim", "stpsf": False, "webbpsf": False}
+        for a in list(choices.keys()):
+            if a in args:
+                psfpar[a] = choices[a]
+        print("ARGUMENTS =", args)
         print("PSFPAR =", psfpar)
         if caldir is None:
             counts, simcatobj = rimage.simulate_counts(
