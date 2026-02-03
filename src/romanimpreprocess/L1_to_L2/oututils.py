@@ -77,7 +77,6 @@ def update_flags(rstruct, ftype):
 
     cal = rstruct["meta"]["cal_step"]
     if ftype.lower() == "gen_cal_image":
-        cal["wfi18_transient"] = "INCOMPLETE"  # Not yet implemented
         cal["dq_init"] = "COMPLETE"  # Data Quality Initialization Step
         cal["saturation"] = "COMPLETE"  # Saturation Identification Step
         cal["refpix"] = "COMPLETE"  # Reference Pixel Correction Step
