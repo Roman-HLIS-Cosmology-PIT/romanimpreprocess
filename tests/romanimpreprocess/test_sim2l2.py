@@ -4,6 +4,7 @@ import asdf
 import numpy as np
 import os
 from astropy.io import fits
+from pathlib import Path
 from romanimpreprocess import pars
 from romanimpreprocess.from_sim.sim_to_isim import Image2D, Image2D_from_L1
 
@@ -32,6 +33,13 @@ def test_simple(tmp_path):
 
     # tell the user the path to the STPSF directory.
     print("STPSF_PATH:", os.getenv("STPSF_PATH"))
+    pth = os.getenv("STPSF_PATH")
+    print(pth)
+    ifile = Path(pth) / "version.txt"
+    print(ifile)
+    with open(ifile) as f:
+        print(f.readlines())
+    print(" ")
 
     tmpdir = str(tmp_path)
 
