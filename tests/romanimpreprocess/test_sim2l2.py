@@ -2,6 +2,7 @@
 
 import asdf
 import numpy as np
+import os
 from astropy.io import fits
 from romanimpreprocess import pars
 from romanimpreprocess.from_sim.sim_to_isim import Image2D, Image2D_from_L1
@@ -28,6 +29,9 @@ def test_simple(tmp_path):
     None
 
     """
+
+    # tell the user the path to the STPSF directory.
+    print("STPSF_PATH:", os.getenv("STPSF_PATH"))
 
     tmpdir = str(tmp_path)
 
