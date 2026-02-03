@@ -588,6 +588,7 @@ class Image2D:
             if "psftype" in inspect.signature(rimage.simulate_counts).parameters
             else dict()
         )
+        print("ARGUMENTS =", inspect.signature(rimage.simulate_counts).parameters)
         print("PSFPAR =", psfpar)
         if caldir is None:
             counts, simcatobj = rimage.simulate_counts(
