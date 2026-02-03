@@ -520,6 +520,10 @@ def calibrateimage(config, verbose=True):
     with asdf.AsdfFile() as af2:
         af2.tree = {"roman": im2, "processinfo": processinfo}
         af2.tree["roman"]["data_withsky"] = slope_withsky[nb:-nb, nb:-nb] * u.DN / u.s
+        if "cal_step" in af2.tree["roman"]["meta"]:
+            print(af2.tree["roman"]["meta"]["cal_step"])
+        else:
+            print("cal_step not in roman->meta")
         with open(config["OUT"], "wb") as f:
             af2.write_to(f)
 
