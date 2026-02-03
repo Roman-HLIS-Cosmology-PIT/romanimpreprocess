@@ -750,6 +750,10 @@ class Image2D:
         # im2['roman']['meta'].update(wcs=this_gwcs)
         # im2['roman']['meta']['wcsinfo']['s_region'] = wcs.create_s_region(this_gwcs)
 
+        # may need this data
+        if "cal_step" in im2["meta"]:
+            im2["meta"]["cal_step"]["wfi18_transient"] = "INCOMPLETE"
+
         # Create metadata for simulation parameter
         romanisimdict2 = {"version": rstversion}
         romanisimdict2.update(**extras2)
