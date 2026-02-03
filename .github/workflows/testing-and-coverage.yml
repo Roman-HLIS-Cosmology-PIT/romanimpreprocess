@@ -31,18 +31,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .[dev]
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Install stpsf data
-      run: |
-        # This is STScI's path to the STPSF data. We don't use this, but romanisim needs it to be there.
-        curl -L https://stsci.box.com/shared/static/z4wt613tg9txgfo5gc4qkvco1jzg74xe.gz \
-          -o minimal_stpsf-data-2.1.0.tar.gz
-        gunzip minimal_stpsf-data-2.1.0.tar.gz
-        tar -xf minimal_stpsf-data-2.1.0.tar
-        echo "STPSF_PATH=$PWD/stpsf-data" >> $GITHUB_ENV
     - name: Run unit tests with pytest
       run: |
-        echo $STPSF_PATH
-        ls $STPSF_PATH
         python -m pytest --cov=romanimpreprocess --cov-report=xml
     - name: Upload coverage report to codecov
       uses: codecov/codecov-action@v5
