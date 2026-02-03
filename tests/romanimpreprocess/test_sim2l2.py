@@ -5,7 +5,6 @@ from pathlib import Path
 
 import asdf
 import numpy as np
-import os
 from astropy.io import fits
 from romanimpreprocess import pars
 from romanimpreprocess.from_sim.sim_to_isim import Image2D, Image2D_from_L1
@@ -33,16 +32,6 @@ def test_simple(tmp_path):
 
     """
 
-    # tell the user the path to the STPSF directory.
-    print("STPSF_PATH:", os.getenv("STPSF_PATH"))
-    pth = os.getenv("STPSF_PATH")
-    print(pth)
-    ifile = Path(pth) / "version.txt"
-    print(ifile)
-    with open(ifile) as f:
-        print(f.readlines())
-    print(" ")
-
     tmpdir = str(tmp_path)
 
     use_read_pattern = [
@@ -60,19 +49,7 @@ def test_simple(tmp_path):
     print(x.galsimwcs)
     print(x.date, x.idsca)
     print(">>", x.image)
-    try:
-        x.simulate(use_read_pattern, includewcs=True)
-    except Exception as e:
-        print("== ** PATH INFORMATION ** ==")
-        print("STPSF_PATH:", os.getenv("STPSF_PATH"))
-        pth = os.getenv("STPSF_PATH")
-        print(pth)
-        ifile = Path(pth) / "version.txt"
-        print(ifile)
-        with open(ifile) as f:
-            print(f.readlines())
-        print(" ")
-        raise Exception("Oops, I couldn't find the data.") from e
+    x.simulate(use_read_pattern, includewcs=True)
     x.L1_write_to(tmpdir + "/sim1.asdf")
     x.L2_write_to(tmpdir + "/sim2-direct.asdf")
 
