@@ -60,7 +60,7 @@ def test_simple(tmp_path):
     print(">>", x.image)
     try:
         x.simulate(use_read_pattern, includewcs=True)
-    except FileNotFoundError:
+    except Exception:
         print("== ** PATH INFORMATION ** ==")
         print("STPSF_PATH:", os.getenv("STPSF_PATH"))
         pth = os.getenv("STPSF_PATH")
