@@ -37,6 +37,7 @@ jobs:
         curl -L https://stsci.box.com/shared/static/z4wt613tg9txgfo5gc4qkvco1jzg74xe.gz \
           -o minimal_stpsf-data-2.1.0.tar.gz
         gunzip minimal_stpsf-data-2.1.0.tar.gz
+        tar -xf minimal_stpsf-data-2.1.0.tar
         pwd
         ls -alt
         echo ""
