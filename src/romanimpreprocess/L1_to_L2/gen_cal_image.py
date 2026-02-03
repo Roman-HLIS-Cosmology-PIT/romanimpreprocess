@@ -482,6 +482,7 @@ def calibrateimage(config, verbose=True):
     # update the metadata
     # oututils.update_flags(im2, "gen_cal_image") # <-- this doesn't work with updated roman_datamodels,
     #                                                    but it isn't essential
+    im2["meta"]["cal_step"]["wfi18_transient"] = "INCOMPLETE"
     oututils.add_in_provenance(im2, "gen_cal_image")
 
     # process information specific to this code
