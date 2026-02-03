@@ -589,8 +589,6 @@ class Image2D:
         for a in list(choices.keys()):
             if a in args:
                 psfpar[a] = choices[a]
-        print("ARGUMENTS =", args)
-        print("PSFPAR =", psfpar)
         if caldir is None:
             counts, simcatobj = rimage.simulate_counts(
                 image_mod.meta,
