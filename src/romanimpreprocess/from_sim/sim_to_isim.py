@@ -583,7 +583,12 @@ class Image2D:
         # simulate a blank image
         # note that newer versions of romanisim need psftype, but older ones don't, so
         # this should be OK either way?
-        psfpar = {"psftype": "galsim"} if "galsim" in inspect.signature(rimage.simulate_counts).parameters else dict()
+        psfpar = (
+            {"psftype": "galsim"}
+            if "psftype" in inspect.signature(rimage.simulate_counts).parameters
+            else dict()
+        )
+        print("PSFPAR =", psfpar)
         if caldir is None:
             counts, simcatobj = rimage.simulate_counts(
                 image_mod.meta,
@@ -593,7 +598,7 @@ class Image2D:
                 darkrate=refdata["dark"],
                 flat=refdata["flat"],
                 psf_keywords=dict(),
-                **psfpar
+                **psfpar,
             )
             nside_sub = pars.nside - 2 * nborder
             this_flat = 1.0 * np.ones(
@@ -634,7 +639,7 @@ class Image2D:
                 darkrate=this_dark,
                 flat=this_flat,
                 psf_keywords=dict(),
-                **psfpar
+                **psfpar,
             )
         util.update_pointing_and_wcsinfo_metadata(image_mod.meta, counts.wcs)
 
