@@ -19,9 +19,11 @@ def fix(tree):
 
     """
 
-    # Add in dummy chi^2 for now (roman-hlis-l2-driver doesn't use this)
-    if "chisq" not in tree["roman"]:
-        tree["roman"]["chisq"] = np.zeros(np.shape(tree["roman"]["data"]), dtype=np.float16)
+    # Add in dummy chi^2 and dumo for now (roman-hlis-l2-driver doesn't use this)
+    new_fields = ["chisq", "dumo"]
+    for fld in new_fields:
+        if fld not in tree["roman"]:
+            tree["roman"][fld] = np.zeros(np.shape(tree["roman"]["data"]), dtype=np.float16)
 
     # Which fields to check in "roman"
     changetypes = {"err": "float16", "var_poisson": "float16", "var_rnoise": "float16", "var_flat": "float16"}
