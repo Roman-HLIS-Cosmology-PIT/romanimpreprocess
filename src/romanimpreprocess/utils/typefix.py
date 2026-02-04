@@ -15,12 +15,14 @@ def fix(tree):
     Returns
     -------
     None
-    
+
     """
 
     try:
         tree.validate()
-    except asdf._jsonschema.exceptions.ValidationError as e:
+    except asdf._jsonschema.exceptions.ValidationError as ve:
         # this is a common error
+        e = str(ve)
         if "'err'" in e and "float16" in e and "err" in tree["roman"]:
+            print("Fixing ...", e)
             tree["roman"]["err"] = tree["roman"]["err"].astype(np.float16)
