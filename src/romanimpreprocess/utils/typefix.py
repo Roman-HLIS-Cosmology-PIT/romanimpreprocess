@@ -20,7 +20,7 @@ def fix(tree):
     """
 
     # Which fields to check in "roman"
-    changetypes = {"err": "float16", "var_poisson": "float16", "var_rnoise": "float16"}
+    changetypes = {"err": "float16", "var_poisson": "float16", "var_rnoise": "float16", "var_flat": "float16"}
 
     max_retries = len(changetypes.keys()) + 2
     for attempt in range(max_retries):
