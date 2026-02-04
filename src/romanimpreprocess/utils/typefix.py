@@ -20,9 +20,9 @@ def fix(tree):
     """
 
     # Add in dummy chi^2 for now (roman-hlis-l2-driver doesn't use this)
-    if "chi2" not in tree["roman"]:
-        tree["roman"]["chi2"] = np.zeros(np.shape(tree["roman"]["data"]), dtype=np.float16)
-    
+    if "chisq" not in tree["roman"]:
+        tree["roman"]["chisq"] = np.zeros(np.shape(tree["roman"]["data"]), dtype=np.float16)
+
     # Which fields to check in "roman"
     changetypes = {"err": "float16", "var_poisson": "float16", "var_rnoise": "float16", "var_flat": "float16"}
 
