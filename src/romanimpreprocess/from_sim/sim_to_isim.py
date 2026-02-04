@@ -905,6 +905,9 @@ class Image2D_from_L1(Image2D):
             imwcs=wcsobj,
             gain=refdata["gain"],
         )
+        # we didn't do this step
+        if "cal_step" in im2["meta"]:
+            im2["meta"]["cal_step"]["wfi18_transient"] = "INCOMPLETE"
 
         # Create metadata for simulation parameter
         romanisimdict2 = {"version": rstversion}
