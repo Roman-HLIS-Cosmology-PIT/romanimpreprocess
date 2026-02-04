@@ -20,7 +20,7 @@ def fix(tree):
 
     try:
         tree.validate()
-        except asdf._jsonschema.exceptions.ValidationError as e:
-            # this is a common error
-            if "'err'" in e and "float16" in e and "err" in tree["roman"]:
-                tree["roman"]["err"] = tree["roman"]["err"].astype(np.float16)
+    except asdf._jsonschema.exceptions.ValidationError as e:
+        # this is a common error
+        if "'err'" in e and "float16" in e and "err" in tree["roman"]:
+            tree["roman"]["err"] = tree["roman"]["err"].astype(np.float16)
