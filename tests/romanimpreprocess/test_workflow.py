@@ -386,7 +386,7 @@ def il_example(linearity_file, gain_file, ipc_file):
 
     """
 
-    ILTEST = IL(linearity_file, gain_file, ipc_file)
+    ILTEST = ipc_linearity.IL(linearity_file, gain_file, ipc_file)
     n = 4088
     NE = np.zeros((n, n), dtype=np.float32)
     ymin = 260
