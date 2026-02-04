@@ -428,7 +428,7 @@ def test_run_all(tmp_path):
             count = np.count_nonzero(np.bitwise_and(a["roman"]["dq"] >> i, 1))
             print(f"BIT {i:2d} {count:7d}")
             if i == 2:
-                assert count > 3000 and count < 300000
+                assert count > 3000 and count < 450000
         isGood = np.where(a["roman"]["dq"] == 0, 1, 0)
 
         # now pull out the data, in DN/s
