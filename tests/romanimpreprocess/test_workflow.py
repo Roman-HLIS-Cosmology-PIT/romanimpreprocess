@@ -367,6 +367,38 @@ def forward_backward_lin_ilin(linearity_file):
     assert np.amax(np.abs(Sfwd - S)) < 0.002
 
 
+def il_example(linearity_file, gain_file, ipc_file):
+    """
+    Some tests for the inverse linearity class.
+
+    Parameters
+    ----------
+    linearity_file : str
+        ASDF linearity calibration reference file.
+    gain_file : str
+        ASDF gain calibration reference file.
+    ipc_file : str
+        ASDF ipc4d calibration reference file.
+
+    Returns
+    -------
+    None
+
+    """
+
+    ILTEST = IL(linearity_file, gain_file, ipc_file)
+    n = 4088
+    NE = np.zeros((n, n), dtype=np.float32)
+    ymin = 260
+    ymax = 262
+    xmin = 140
+    xmax = 143
+    print(ILTEST.apply(NE, electrons=True, electrons_out=False)[ymin:ymax, xmin:xmax])
+    NE[::3, ::3] = 2.0e3
+    print(ILTEST.apply(NE, electrons=True, electrons_out=False)[ymin:ymax, xmin:xmax])
+    assert NE[0, 0] < -1.0e10  # will fail
+
+
 def test_run_all(tmp_path):
     """
     Test function for a small pyimcom run.
@@ -414,6 +446,7 @@ def test_run_all(tmp_path):
 
     # forward-backward test (contains its own asserts)
     forward_backward_lin_ilin(caldir["linearitylegendre"])
+    il_example(caldir["linearitylegendre"], caldir["gain"], caldir["ipc4d"])
 
     sim_to_isim.run_config(
         {
