@@ -46,7 +46,7 @@ def visualize(argv):
     with asdf.open(argv[1]) as f:
         data = f["roman"]["data"][:, ymin : ymax + 1, xmin : xmax + 1].astype(np.float32)
     ng = np.shape(data)[0]
-    
+
     with ReportFigContext(matplotlib, plt):
         matplotlib.rcParams.update({"font.size": 8})
         F = plt.figure(figsize=(3.5 * ng, 6))
@@ -83,7 +83,13 @@ def visualize(argv):
         vmax = np.percentile(diff[0, :, :], 100 - percentile_cut)
         vmin = np.percentile(diff[0, :, :], percentile_cut)
         im = S.imshow(
-            diff[0, :, :], cmap="magma", aspect=1.0, interpolation="nearest", origin="lower", vmin=vmin, vmax=vmax
+            diff[0, :, :],
+            cmap="magma",
+            aspect=1.0,
+            interpolation="nearest",
+            origin="lower",
+            vmin=vmin,
+            vmax=vmax,
         )
         F.colorbar(im, orientation="vertical", fraction=0.046, pad=0.04)
 
