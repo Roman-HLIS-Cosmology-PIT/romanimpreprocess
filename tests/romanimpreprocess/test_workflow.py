@@ -344,7 +344,8 @@ def forward_backward_lin_ilin(linearity_file):
     with asdf.open(linearity_file) as F:
         print("Smin", F["roman"]["Smin"][ymin:ymax, xmin:xmax])
         print("Smax", F["roman"]["Smax"][ymin:ymax, xmin:xmax])
-        S = F["roman"]["Sref"][ymin:ymax, xmin:xmax] + np.linspace(0, dx * dy - 1, dx * dy).reshape((dy, dx))
+        S = F["roman"]["Sref"][ymin:ymax, xmin:xmax]
+        S[:, :] += 5000.0 * np.linspace(0, dx * dy - 1, dx * dy).reshape((dy, dx))
     Slin, dq = ipc_linearity.linearity(S, linearity_file, origin=(xmin, ymin))
     Sfwd, exflag = ipc_linearity.invlinearity(Slin, linearity_file, origin=(xmin, ymin))
 
@@ -359,7 +360,11 @@ def forward_backward_lin_ilin(linearity_file):
     print(Sfwd)
     print("flags")
     print(dq, exflag)
-    assert np.amax(Sfwd) < -1.0  # will fail, force print
+
+    # was the recovery within bounds?
+    assert not np.any(exflag)
+    print(Sfwd - S)
+    assert np.amax(np.abs(Sfwd - S)) < 0.002
 
 
 def test_run_all(tmp_path):
