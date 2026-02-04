@@ -48,6 +48,7 @@ from ..utils import (
     processlog,
     reference_subtraction,
     sky,
+    typefix,
 )
 
 # local imports
@@ -524,6 +525,7 @@ def calibrateimage(config, verbose=True):
             print(af2.tree["roman"]["meta"]["cal_step"])
         else:
             print("cal_step not in roman->meta")
+        typefix.fix(af2)
         with open(config["OUT"], "wb") as f:
             af2.write_to(f)
 
