@@ -386,6 +386,12 @@ def il_example(linearity_file, gain_file, ipc_file):
 
     """
 
+    # expected results
+    target1 = np.array([[4801.0491668, 4900.74928657, 4800.50198393],
+        [4800.30217909, 4900.15392476, 4800.05504147]])
+    target2 = np.array([[4803.76066256, 4920.3284374,  4803.19832938],
+        [4817.8237426, 6177.69747299, 4817.69985963]])
+
     ILTEST = ipc_linearity.IL(linearity_file, gain_file, ipc_file)
     n = 4088
     NE = np.zeros((n, n), dtype=np.float32)
@@ -393,10 +399,13 @@ def il_example(linearity_file, gain_file, ipc_file):
     ymax = 262
     xmin = 140
     xmax = 143
-    print(ILTEST.apply(NE, electrons=True, electrons_out=False)[ymin:ymax, xmin:xmax])
+    val1 = ILTEST.apply(NE, electrons=True, electrons_out=False)[ymin:ymax, xmin:xmax]
+    print(val1)
+    assert np.all(np.abs(target1 - val1) < 0.002)
     NE[::3, ::3] = 2.0e3
-    print(ILTEST.apply(NE, electrons=True, electrons_out=False)[ymin:ymax, xmin:xmax])
-    assert NE[0, 0] < -1.0e10  # will fail
+    val2 = ILTEST.apply(NE, electrons=True, electrons_out=False)[ymin:ymax, xmin:xmax]
+    print(val2)
+    assert np.all(np.abs(target2 - val2) < 0.002)
 
 
 def test_run_all(tmp_path):
