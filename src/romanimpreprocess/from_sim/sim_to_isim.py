@@ -56,6 +56,7 @@ from ..utils.coordutils import pixelarea
 
 # local imports
 from ..utils.ipc_linearity import IL, ipc_rev
+from ..utils.typefix import TypeRef
 
 
 def hdu_sip_hflip(data, header):
@@ -746,6 +747,8 @@ class Image2D:
             imwcs=obj,
             gain=refdata["gain"],
         )
+        self.im2type = TypeRef({"roman": im2})  # save initial data types
+        
         # functionality to pull over the WCS from L1 without dependence on wcs.convert_wcs_to_gwcs
         # im2['roman']['meta'].update(wcs=this_gwcs)
         # im2['roman']['meta']['wcsinfo']['s_region'] = wcs.create_s_region(this_gwcs)
@@ -801,6 +804,8 @@ class Image2D:
         """
 
         if hasattr(self, "af2"):
+            self.im2type.convert(self.af2)
+            print("types = ", self.im2type.types)
             with open(filename, "wb") as f:
                 self.af2.write_to(f)
         else:
