@@ -345,8 +345,8 @@ def forward_backward_lin_ilin(linearity_file):
         print("Smin", F["roman"]["Smin"][ymin:ymax, xmin:xmax])
         print("Smax", F["roman"]["Smax"][ymin:ymax, xmin:xmax])
         S = F["roman"]["Sref"][ymin:ymax, xmin:xmax] + np.linspace(0, dx * dy - 1, dx * dy).reshape((dy, dx))
-    Slin, dq = linearity(S, linearity_file, origin=(xmin, ymin))
-    Sfwd, exflag = invlinearity(Slin, linearity_file, origin=(xmin, ymin))
+    Slin, dq = ipc_linearity.linearity(S, linearity_file, origin=(xmin, ymin))
+    Sfwd, exflag = ipc_linearity.invlinearity(Slin, linearity_file, origin=(xmin, ymin))
 
     print("coefs:")
     with asdf.open(linearity_file) as F:
