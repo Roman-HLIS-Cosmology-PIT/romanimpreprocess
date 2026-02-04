@@ -320,6 +320,48 @@ def gencal(cstem, rng):
     return {}
 
 
+def forward_backward_lin_ilin(linearity_file):
+    """
+    Forward-backward test for linearity routines.
+
+    Parameters
+    ----------
+    linearity_file : str
+        ASDF linearity calibration reference file.
+
+    Returns
+    -------
+    None
+
+    """
+
+    ymin = 260
+    ymax = 262
+    xmin = 140
+    xmax = 143
+    dy = ymax - ymin
+    dx = xmax - xmin
+    with asdf.open(linearity_file) as F:
+        print("Smin", F["roman"]["Smin"][ymin:ymax, xmin:xmax])
+        print("Smax", F["roman"]["Smax"][ymin:ymax, xmin:xmax])
+        S = F["roman"]["Sref"][ymin:ymax, xmin:xmax] + np.linspace(0, dx * dy - 1, dx * dy).reshape((dy, dx))
+    Slin, dq = linearity(S, linearity_file, origin=(xmin, ymin))
+    Sfwd, exflag = invlinearity(Slin, linearity_file, origin=(xmin, ymin))
+
+    print("coefs:")
+    with asdf.open(linearity_file) as F:
+        print(F["roman"]["data"][:, ymin:ymax, xmin:xmax])
+    print("signal [DN_raw]:")
+    print(S)
+    print("inverted signal [DN_lin]:")
+    print(Slin)
+    print("recovered signal [DN_raw]:")
+    print(Sfwd)
+    print("flags")
+    print(dq, exflag)
+    assert np.amax(Sfwd) < -1.0  # will fail, force print
+
+
 def test_run_all(tmp_path):
     """
     Test function for a small pyimcom run.
@@ -364,6 +406,9 @@ def test_run_all(tmp_path):
         these_reads.append(read_pattern[i][0])
         these_reads.append(read_pattern[i][-1] + 1)
     print("these_reads -->", these_reads)
+
+    # forward-backward test (contains its own asserts)
+    forward_backward_lin_ilin(caldir["linearitylegendre"])
 
     sim_to_isim.run_config(
         {
