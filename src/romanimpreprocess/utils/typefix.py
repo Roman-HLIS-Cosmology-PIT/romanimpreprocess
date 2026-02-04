@@ -35,7 +35,7 @@ def fix(tree):
                 raise Exception("Validation error reached max tries") from ve
 
             # Now go through the possible changes we might have to make
-            for fld in changetypes.keys():
+            for fld in changetypes:
                 if f"'{fld}'" in e and changetypes[fld] in e and fld in tree["roman"]:
                     print("Fixing", fld, "...", attempt)
                     tree["roman"][fld] = tree["roman"][fld].astype(np.dtype(changetypes[fld]))
