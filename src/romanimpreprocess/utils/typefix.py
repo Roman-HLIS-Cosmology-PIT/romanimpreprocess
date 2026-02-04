@@ -5,7 +5,7 @@ This was introduced to avoid collisions with different versions of schemas.
 
 """
 
-import asdf
+import asdf  # will want later  # noqa: F401
 import numpy as np
 
 class TypeRef:
@@ -19,11 +19,10 @@ class TypeRef:
 
     """
 
-    # The items to keep
-    items = ["roman.err"]
+    # The items to track (use . as separator)
+    items = ["roman.err", "wont_need_this", "wont_need_this.wont_need_this_either"]
 
     def __init__(self, tree):
-
         self.types = {}
         for item in self.items:
             r = tree
