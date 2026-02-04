@@ -52,11 +52,11 @@ from romanisim import persistence as rip
 from romanisim import ris_make_utils as ris
 
 from .. import pars
+from ..utils import typefix
 from ..utils.coordutils import pixelarea
 
 # local imports
 from ..utils.ipc_linearity import IL, ipc_rev
-from ..utils import typefix
 
 
 def hdu_sip_hflip(data, header):
