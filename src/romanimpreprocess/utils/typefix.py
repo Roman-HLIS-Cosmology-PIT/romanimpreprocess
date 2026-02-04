@@ -19,7 +19,10 @@ def fix(tree):
 
     """
 
-    max_retries = 4
+    # Which fields to check in "roman"
+    changetypes = {"err": "float16", "var_poisson": "float16", "var_rnoise": "float16"}
+
+    max_retries = len(changetypes.keys()) + 2
     for attempt in range(max_retries):
         try:
             tree.validate()
@@ -32,9 +35,7 @@ def fix(tree):
                 raise Exception("Validation error reached max tries") from ve
 
             # Now go through the possible changes we might have to make
-            if "'err'" in e and "float16" in e and "err" in tree["roman"]:
-                print("Fixing err ...", attempt)
-                tree["roman"]["err"] = tree["roman"]["err"].astype(np.float16)
-            if "'var_poisson'" in e and "float16" in e and "var_poisson" in tree["roman"]:
-                print("Fixing var_poisson ...", attempt)
-                tree["roman"]["var_poisson"] = tree["roman"]["var_poisson"].astype(np.float16)
+            for fld in changetypes.keys():
+                if f"'{fld}'" in e and changetypes[fld] in e and fld in tree["roman"]:
+                    print("Fixing", fld, "...", attempt)
+                    tree["roman"][fld] = tree["roman"][fld].astype(np.dtype(changetypes[fld]))
