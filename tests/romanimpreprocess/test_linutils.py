@@ -46,4 +46,4 @@ def test_lin():
             4.0,
         ]
     ).reshape(np.shape(phi))
-    assert np.all(phidiff < 1.0e6)
+    assert np.all(phidiff < 1.0e-6)
