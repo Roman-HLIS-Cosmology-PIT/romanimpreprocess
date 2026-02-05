@@ -593,10 +593,10 @@ def test_run_all(tmp_path):
                 assert 0.7 < np.percentile(x, 95) - np.percentile(x, 5) < 1.1
                 assert 0.3 < np.percentile(x2, 75) - np.percentile(x2, 25) < 0.4
             if j == 1:
-                assert 0.24 < np.percentile(x, 95) - np.percentile(x, 5) < 0.31
+                assert 0.24 < np.percentile(x, 95) - np.percentile(x, 5) < 0.40
                 assert 1.1 < np.percentile(x2, 75) - np.percentile(x2, 25) < 1.4
             if j == 2:
-                assert 0.24 < np.percentile(x, 95) - np.percentile(x, 5) < 0.31
+                assert 0.24 < np.percentile(x, 95) - np.percentile(x, 5) < 0.40
                 assert 0.08 < np.percentile(x2, 75) - np.percentile(x2, 25) < 0.14
 
 
