@@ -585,9 +585,20 @@ def test_run_all(tmp_path):
             print("layer", j, c2["NOISE"]["LAYER"][j])
             x = np.where(isGood, adata[j, :, :], 0.0)
             print(np.percentile(x, 0.1), np.percentile(x, 5), np.percentile(x, 95), np.percentile(x, 99.9))
-            x = adata[j, :, :][hisignal]
-            print(np.percentile(x, 25), np.percentile(x, 75))
-        assert np.all(x == 0.0)  # will fail
+            x2 = adata[j, :, :][hisignal]
+            print(np.percentile(x2, 25), np.percentile(x2, 75))
+
+            # assertions
+            if j == 0:
+                assert 0.7 < np.percentile(x, 95) - np.percentile(x, 5) < 1.1
+                assert 0.3 < np.percentile(x2, 75) - np.percentile(x2, 25) < 0.4
+            if j == 1:
+                assert 0.24 < np.percentile(x, 95) - np.percentile(x, 5) < 0.31
+                assert 1.1 < np.percentile(x2, 75) - np.percentile(x2, 25) < 1.4
+            if j == 2:
+                assert 0.24 < np.percentile(x, 95) - np.percentile(x, 5) < 0.31
+                assert 0.08 < np.percentile(x2, 75) - np.percentile(x2, 25) < 0.14
+            
 
 
 def test_flip(tmp_path):
