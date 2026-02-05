@@ -483,7 +483,7 @@ def test_run_all(tmp_path):
         "SKYORDER": 2,
         "FITSOUT": True,
         "NOISE": {
-            "LAYER": ["Rz4S2C1", "O"],
+            "LAYER": ["Rz4S2C1", "O", "Prb2"],
             "TEMP": tmp_dir + f"/temp_{band:s}_{id:d}_{sca:d}.asdf",
             "SEED": 10000,
             "OUT": tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noise.asdf",
@@ -556,7 +556,7 @@ def test_run_all(tmp_path):
     print(isGood, np.mean(isGood.astype(np.float32)))
 
     x = np.where(isGood, data_out - expected_signal, 0.0)
-    fits.PrimaryHDU(x).writeto(tmp_dir + "/out_diff.fits", overwrite=True)
+    # fits.PrimaryHDU(x).writeto(tmp_dir + "/out_diff.fits", overwrite=True)
 
     # some quality checks on unmasked pixels
     assert np.count_nonzero(np.abs(x) > 100) < 50
@@ -574,6 +574,16 @@ def test_run_all(tmp_path):
     )
     assert os.path.exists(tmp_dir + "/out_im1.pdf")
 
+    # noise tests
+    with asdf.open(tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noise.asdf") as a:
+        print(a.info(max_rows=None))
+        adata = a["roman"]["data"]
+        nlayer = c2["NOISE"]["LAYER"]
+        assert np.shape(adata) == (nlayer, 4088, 4088)
+        for j in range(nlayer):
+            x = np.where(isGood, adata[j, :, :], 0.0)
+            print(np.percentile(x, 0.1), np.percentile(x, 5), np.percentile(x, 95), np.percentile(x, 99.9))
+        assert np.all(x == 0.0)  # will fail
 
 def test_flip(tmp_path):
     """Test of flipping the SCA."""
