@@ -598,7 +598,6 @@ def test_run_all(tmp_path):
             if j == 2:
                 assert 0.24 < np.percentile(x, 95) - np.percentile(x, 5) < 0.31
                 assert 0.08 < np.percentile(x2, 75) - np.percentile(x2, 25) < 0.14
-            
 
 
 def test_flip(tmp_path):
