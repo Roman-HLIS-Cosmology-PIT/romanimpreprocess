@@ -149,7 +149,7 @@ This will generate the output (simulated L2) file, with the provided WCS (in thi
 
 See `the L1_to_L2 Readme <docs/L1_to_L2_README.rst>`_ for detailed instructions and all the options.
 
-**Important note**: Sometimes the SOC L2 data model is updated with new schema entries that aren't in the PIT L2 files. This means legacy pipelines that don't use the new schema entries will raise an exception if a dependency is updated with a newer version of the schema. We have marked these with the ``["meta"]["dummyfields"]`` entry in the ASDF tree and inserted a dummy (generally array of zeros) so that the pipeline will run. Please check for that field if you run code that expects a SOC L2 file.
+**Important note**: Sometimes the SOC L2 data model is updated with new schema entries that aren't in the PIT L2 files. This means legacy pipelines that don't use the new schema entries will raise an exception if a dependency is updated with a newer version of the schema. We have marked these with the ``["roman"]["meta"]["dummyfields"]`` entry in the ASDF tree and inserted a dummy (generally array of zeros) so that the pipeline will run. Please check for that field if you run code that expects a SOC L2 file.
 
 Utilities
 *********
