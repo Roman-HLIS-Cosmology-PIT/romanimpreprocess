@@ -24,7 +24,7 @@ def fix(tree):
     for fld in new_fields:
         if fld not in tree["roman"]:
             tree["roman"][fld] = np.zeros(np.shape(tree["roman"]["data"]), dtype=np.float16)
-            if "dummyfields" not in tree["meta"]:
+            if "dummyfields" not in tree["roman"]["meta"]:
                 tree["roman"]["meta"]["dummyfields"] = []
             tree["roman"]["meta"]["dummyfields"].append(f"roman.{fld}")
     if "dummyfields" in tree["roman"]["meta"]:
