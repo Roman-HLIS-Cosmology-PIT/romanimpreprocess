@@ -25,11 +25,11 @@ def fix(tree):
         if fld not in tree["roman"]:
             tree["roman"][fld] = np.zeros(np.shape(tree["roman"]["data"]), dtype=np.float16)
             if "dummyfields" not in tree["meta"]:
-                tree["meta"]["dummyfields"] = []
-            tree["meta"]["dummyfields"].append(f"roman.{fld}")
-    if "dummyfields" in tree["meta"]:
-        print("added dummy fields:", tree["meta"]["dummyfields"])
-        assert "not_here" in tree["meta"]["dummyfields"]  # will fail
+                tree["roman"]["meta"]["dummyfields"] = []
+            tree["roman"]["meta"]["dummyfields"].append(f"roman.{fld}")
+    if "dummyfields" in tree["roman"]["meta"]:
+        print("added dummy fields:", tree["roman"]["meta"]["dummyfields"])
+        assert "not_here" in tree["roman"]["meta"]["dummyfields"]  # will fail
 
     # Which fields to check in "roman"
     changetypes = {"err": "float16", "var_poisson": "float16", "var_rnoise": "float16", "var_flat": "float16"}
