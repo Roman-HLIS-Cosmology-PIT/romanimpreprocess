@@ -553,7 +553,8 @@ def test_run_all(tmp_path):
         print("MAX", np.amax(np.abs(skyresid)))
         assert np.amax(np.abs(skyresid)) < 1e-3
 
-    print(isGood, np.mean(isGood.astype(np.float32)))
+    hisignal = np.logical_and(isGood, expected_signal > 5.0)
+    print(isGood, np.mean(isGood.astype(np.float32)), "hisig =", np.count_nonzero(hisignal))
 
     x = np.where(isGood, data_out - expected_signal, 0.0)
     # fits.PrimaryHDU(x).writeto(tmp_dir + "/out_diff.fits", overwrite=True)
@@ -578,12 +579,16 @@ def test_run_all(tmp_path):
     with asdf.open(tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noise.asdf") as a:
         print(a.info(max_rows=None))
         adata = a["noise"]
-        nlayer = c2["NOISE"]["LAYER"]
+        nlayer = len(c2["NOISE"]["LAYER"])
         assert np.shape(adata) == (nlayer, 4088, 4088)
         for j in range(nlayer):
+            print("layer", j, c2["NOISE"]["LAYER"][j])
             x = np.where(isGood, adata[j, :, :], 0.0)
             print(np.percentile(x, 0.1), np.percentile(x, 5), np.percentile(x, 95), np.percentile(x, 99.9))
+            x = adata[j, :, :][hisignal]
+            print(np.percentile(x, 25), np.percentile(x, 75))
         assert np.all(x == 0.0)  # will fail
+
 
 def test_flip(tmp_path):
     """Test of flipping the SCA."""
