@@ -577,7 +577,7 @@ def test_run_all(tmp_path):
     # noise tests
     with asdf.open(tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noise.asdf") as a:
         print(a.info(max_rows=None))
-        adata = a["roman"]["data"]
+        adata = a["noise"]
         nlayer = c2["NOISE"]["LAYER"]
         assert np.shape(adata) == (nlayer, 4088, 4088)
         for j in range(nlayer):
