@@ -29,7 +29,6 @@ def fix(tree):
             tree["roman"]["meta"]["dummyfields"].append(f"roman.{fld}")
     if "dummyfields" in tree["roman"]["meta"]:
         print("added dummy fields:", tree["roman"]["meta"]["dummyfields"])
-        assert "not_here" in tree["roman"]["meta"]["dummyfields"]  # will fail
 
     # Which fields to check in "roman"
     changetypes = {"err": "float16", "var_poisson": "float16", "var_rnoise": "float16", "var_flat": "float16"}
