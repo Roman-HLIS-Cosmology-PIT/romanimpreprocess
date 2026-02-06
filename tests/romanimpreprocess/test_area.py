@@ -22,7 +22,7 @@ def test_area_astropy():
         area = pixelarea(w, N=N)
         s = d * (np.linspace(0, N - 1, N) - N / 2.0 - 0.5) * np.pi / 180.0
         x, y = np.meshgrid(s, s)
-        area_target = (d * np.pi / 180.0) ** 2 / (1.0 + (x**2 + y**2) / 4.0 ) ** 2
+        area_target = (d * np.pi / 180.0) ** 2 / (1.0 + (x**2 + y**2) / 4.0) ** 2
         err = np.log(area / area_target)
         print(err)
         print(err[N // 2, N // 2])
