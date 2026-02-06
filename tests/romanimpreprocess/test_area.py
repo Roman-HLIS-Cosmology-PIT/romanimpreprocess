@@ -3,8 +3,8 @@
 
 import numpy as np
 from astropy.wcs import WCS
-
 from romanimpreprocess.utils.coordutils import pixelarea
+
 
 def test_area_astropy():
     """Test function with astropy WCS."""
