@@ -1,4 +1,3 @@
-
 """Test for area function."""
 
 import numpy as np
