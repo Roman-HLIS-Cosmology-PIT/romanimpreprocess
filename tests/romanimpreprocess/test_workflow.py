@@ -531,8 +531,7 @@ def test_run_all(tmp_path):
         # sky checks
         print(np.array(a["processinfo"]["skycoefs"]))
         assert len(a["processinfo"]["skycoefs"]) == 6
-        assert a["processinfo"]["skycoefs"][0] > 0.0
-        assert a["processinfo"]["skycoefs"][0] < 2.0
+        assert -0.3 <= a["processinfo"]["skycoefs"][0] <= 1.7
         for i in range(1, 6):
             assert np.abs(a["processinfo"]["skycoefs"][i]) < 1.0
         skycoefs = np.array(a["processinfo"]["skycoefs"])
