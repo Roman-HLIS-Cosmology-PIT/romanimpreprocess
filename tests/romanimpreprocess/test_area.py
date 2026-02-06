@@ -1,3 +1,4 @@
+
 """Test for area function."""
 
 import numpy as np
@@ -26,3 +27,10 @@ def test_area_astropy():
         print(err)
         print(err[N // 2, N // 2])
         assert np.all(np.abs(err) < 2.0e-4)
+
+    # Test exception handling if we give it the wrong type of object.
+    try:
+        x = pixelarea("this_isnt_a_wcs_and_should_fail", N=64)
+        assert x == 42  # shouldn't get here
+    except ValueError as ve:
+        assert str(ve) == "Unrecognized WCS type"
