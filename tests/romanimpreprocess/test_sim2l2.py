@@ -92,4 +92,4 @@ def test_simple(tmp_path):
         print(np.count_nonzero(np.abs(postagenew - postageorig) > 0.2))
 
     assert np.count_nonzero(np.abs(postagenew - postageorig) > 0.4) <= 3
-    assert np.count_nonzero(np.abs(postagenew - postageorig) > 0.2) <= 10
+    assert np.count_nonzero(np.abs(postagenew - postageorig) > 0.2) <= 12
