@@ -32,7 +32,7 @@ def pixelarea(inwcs, N=4088):
 
     """
 
-    sp = np.linspace(-1, N + 1, N + 2)
+    sp = np.linspace(-1, N, N + 2)
     xx, yy = np.meshgrid(sp, sp)
     deg = np.pi / 180.0
 
