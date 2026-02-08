@@ -8,11 +8,10 @@ import asdf
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
+from PIL import Image
 from romanimpreprocess.from_sim import sim_to_isim
 from romanimpreprocess.L1_to_L2 import gen_cal_image, gen_noise_image
 from romanimpreprocess.utils import fpaplot, ipc_linearity, maskhandling, visualize
-
-from PIL import Image
 
 # Settings for this test
 id = 163
@@ -462,7 +461,9 @@ def test_run_all(tmp_path):
     il_example(caldir["linearitylegendre"], caldir["gain"], caldir["ipc4d"])
 
     # make sample images
-    arr = multi_image(tmp_dir + f"/roman_wfi_{ctype2:s}_" + "{tag:s}_SCA{sca:02d}.asdf", 128, maskhandling.PixelMask1)
+    arr = fpaplot.multi_image(
+        tmp_dir + f"/roman_wfi_{ctype2:s}_" + "{tag:s}_SCA{sca:02d}.asdf", 128, maskhandling.PixelMask1
+    )
     Image.fromarray(arr[::-1, :, :]).save("panel_image.png")
 
     sim_to_isim.run_config(
