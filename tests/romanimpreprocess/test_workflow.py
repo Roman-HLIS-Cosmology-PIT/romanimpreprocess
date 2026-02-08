@@ -464,6 +464,13 @@ def test_run_all(tmp_path):
     arr = fpaplot.multi_image(
         tmp_dir + "/roman_wfi_{:s}_" + tag + "_SCA{:02d}.asdf", 128, maskhandling.PixelMask1
     )
+    # check a few pixels in the output image
+    print(arr[2057, 672, :])
+    print(arr[2057, 1527, :])
+    print(arr[709, 1957, :])
+    print(arr[0, -1, :])
+    print(arr[455, 422:432, 0])
+    assert arr[0, -1, 0] == 0  # will fail
     Image.fromarray(arr[::-1, :, :]).save("panel_image.png")
 
     sim_to_isim.run_config(
