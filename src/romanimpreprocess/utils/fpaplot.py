@@ -182,7 +182,7 @@ def write_text(image, origin, size, val, string):
         posx += size * 8
 
 
-def make_big_image(infile_format, n1, ptype, vmin=0.0, vmax=1.0, mask=None, cmap="viridis", scale=None):
+def make_big_image(infile_format, n1, ptype, vmin=0.0, vmax=1.0, mask=None, cmap="viridis", scaleformat=None):
     """
     Makes an RGB image of the focal plane.
 
@@ -202,7 +202,7 @@ def make_big_image(infile_format, n1, ptype, vmin=0.0, vmax=1.0, mask=None, cmap
         Builds a mask based on the indicated class.
     cmap : str, optional
         Display color scale.
-    scale : str, optional
+    scaleformat : str, optional
         Format string for the color bar.
 
     Returns
@@ -242,7 +242,7 @@ def make_big_image(infile_format, n1, ptype, vmin=0.0, vmax=1.0, mask=None, cmap
         posy = (ctrs[scanum - 1, 1] - nside_base // 2 - bbox["ymin"]) // scale
         arr[posy : posy + n1, posx : posx + n1, :] = cmap(myImage, bytes=True)[:, :, :3]
 
-    if scale is not None:
+    if scaleformat is not None:
         arr[-(n1 // 8) :, nx // 2 - n1 : nx // 2 + n1, :] = cmap(np.linspace(0, 1, 2 * n1), bytes=True)[
             None, :, :3
         ]
@@ -250,7 +250,7 @@ def make_big_image(infile_format, n1, ptype, vmin=0.0, vmax=1.0, mask=None, cmap
         posy = ny - n1 // 8 - 15 * sc
         for j in range(3):
             arr[-(n1 // 8) - 2 * sc : -(n1 // 8), nx // 2 - n1 + j * n1 : nx // 2 - n1 + j * n1 + sc, :] = 0
-            txt = scale.format(j / 2.0 * (vmax - vmin) + vmin)
+            txt = scaleformat.format(j / 2.0 * (vmax - vmin) + vmin)
             posx = nx // 2 - n1 + n1 * j - 3 * sc * len(txt)
             for l_ in range(3):
                 write_text(arr[:, :, l_], (posy, posx), sc, 0, txt)
