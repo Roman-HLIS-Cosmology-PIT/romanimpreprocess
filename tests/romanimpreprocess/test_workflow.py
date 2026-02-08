@@ -220,7 +220,7 @@ def gencal(cstem, rng):
     pflat[:, -dtrim:] = 0.0
 
     # now build a non-linearity table
-    data = np.zeros((3, N, N), dtype=np.float32)
+    data = np.zeros((4, N, N), dtype=np.float32)
     data[2, :, :] = 20 + 180 * rng.uniform(size=(N, N))
 
     # now the derivative at Sref is given by:
