@@ -467,7 +467,7 @@ def test_run_all(tmp_path):
     # check a few pixels in the output image
     print(arr[2057, 672, :])
     print(arr[2057, 1527, :])
-    print(arr[709, 1957, :])
+    print(arr[709, 1624, :])
     print(arr[0, -1, :])
     print(arr[455, 422:432, 0])
     assert arr[0, -1, 0] == 0  # will fail
