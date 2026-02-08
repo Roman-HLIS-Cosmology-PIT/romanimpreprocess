@@ -25,10 +25,6 @@ import matplotlib
 import numpy as np
 from PIL import Image
 
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
-plt.switch_backend("agg")
 
 # focal plane parameters
 nside_base = 4096
