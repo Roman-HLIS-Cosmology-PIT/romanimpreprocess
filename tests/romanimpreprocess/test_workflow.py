@@ -274,7 +274,7 @@ def gencal(cstem, rng):
     # dark map
     mask |= np.where(dark_slope > 0.25, np.where(dark_slope > 12.5, 2**11, 2**12), 0).astype(np.uint32)
 
-    asdf.AsdfFile({"roman": {"data": mask}}).write_to(cstem + f"_mask_{tag:s}_SCA{sca:02d}.asdf")
+    asdf.AsdfFile({"roman": {"dq": mask}}).write_to(cstem + f"_mask_{tag:s}_SCA{sca:02d}.asdf")
 
     ### PFLAT
 
