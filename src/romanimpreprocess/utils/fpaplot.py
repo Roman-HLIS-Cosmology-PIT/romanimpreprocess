@@ -299,10 +299,14 @@ def multi_image(infile_format, n1, masktype):
 
     # linearity
     my_images.append(
-        make_big_image(infile_format, n1, "lin2", vmin=-100.0, vmax=2900.0, scaleformat="{:4.0f}", mask=masktype)
+        make_big_image(
+            infile_format, n1, "lin2", vmin=-100.0, vmax=2900.0, scaleformat="{:4.0f}", mask=masktype
+        )
     )
     my_images.append(
-        make_big_image(infile_format, n1, "lin3", vmin=-100.0, vmax=1500.0, scaleformat="{:4.0f}", mask=masktype)
+        make_big_image(
+            infile_format, n1, "lin3", vmin=-100.0, vmax=1500.0, scaleformat="{:4.0f}", mask=masktype
+        )
     )
 
     # gain
@@ -312,18 +316,26 @@ def multi_image(infile_format, n1, masktype):
 
     # IPC
     my_images.append(
-        make_big_image(infile_format, n1, "alphaD", vmin=0.0, vmax=0.004, scaleformat="{:5.3f}", mask=masktype)
+        make_big_image(
+            infile_format, n1, "alphaD", vmin=0.0, vmax=0.004, scaleformat="{:5.3f}", mask=masktype
+        )
     )
     my_images.append(
-        make_big_image(infile_format, n1, "alphaH", vmin=0.005, vmax=0.025, scaleformat="{:5.3f}", mask=masktype)
+        make_big_image(
+            infile_format, n1, "alphaH", vmin=0.005, vmax=0.025, scaleformat="{:5.3f}", mask=masktype
+        )
     )
     my_images.append(
-        make_big_image(infile_format, n1, "alphaV", vmin=0.005, vmax=0.025, scaleformat="{:5.3f}", mask=masktype)
+        make_big_image(
+            infile_format, n1, "alphaV", vmin=0.005, vmax=0.025, scaleformat="{:5.3f}", mask=masktype
+        )
     )
 
     # flat
     my_images.append(
-        make_big_image(infile_format, n1, "pflatnorm", vmin=0.8, vmax=1.2, scaleformat="{:4.2f}", mask=masktype)
+        make_big_image(
+            infile_format, n1, "pflatnorm", vmin=0.8, vmax=1.2, scaleformat="{:4.2f}", mask=masktype
+        )
     )
     # read noise
     my_images.append(
