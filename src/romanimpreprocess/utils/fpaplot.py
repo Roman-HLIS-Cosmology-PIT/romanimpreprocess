@@ -25,7 +25,6 @@ import matplotlib
 import numpy as np
 from PIL import Image
 
-
 # focal plane parameters
 nside_base = 4096
 # the below are in units of pixels ( = 0.01 mm)
