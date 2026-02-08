@@ -462,7 +462,7 @@ def test_run_all(tmp_path):
 
     # make sample images
     arr = fpaplot.multi_image(
-        tmp_dir + f"/roman_wfi_{ctype2:s}_" + "{:s}_SCA{:02d}.asdf", 128, maskhandling.PixelMask1
+        tmp_dir + "/roman_wfi_{:s}_" + tag + "_SCA{:02d}.asdf", 128, maskhandling.PixelMask1
     )
     Image.fromarray(arr[::-1, :, :]).save("panel_image.png")
 
