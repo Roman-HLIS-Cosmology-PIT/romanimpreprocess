@@ -52,3 +52,10 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: Roman-HLIS-Cosmology-PIT/romanimpreprocess
+    - name: Save FPA panel image for Python 3.14 only
+      if: ${{ matrix.python-version == '3.14' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: fpa-panel-image
+        path: panel_image.png
+        retention-days: 1
