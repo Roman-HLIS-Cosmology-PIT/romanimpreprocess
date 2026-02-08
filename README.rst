@@ -16,8 +16,7 @@ You will need to install:
 * `galsim <https://galsim-developers.github.io/GalSim/_build/html/overview.html>`_: This is a general-purpose package used for image simulations 
   (romanisim is built on top of it).
 
-* `romanisim <https://github.com/spacetelescope/romanisim>`_: This is a Roman-specific image simulator (in development; testing here is with commit 
-  ``910af8f``, from August 2025). ``romanimpreprocess.from_sim`` uses the ``romanisim`` 
+* `romanisim <https://github.com/spacetelescope/romanisim>`_: This is a Roman-specific image simulator. ``romanimpreprocess.from_sim`` uses the ``romanisim`` 
   functions rather than calling the whole script, since we are generating ramps from a 2D image rather than a catalog.
 
 * `romancal <https://roman-pipeline.readthedocs.io/en/latest/>`_: The Roman pipeline to go from Level 1 (uncalibrated, 3D) to Level 2 (calibrated, 2D) 
