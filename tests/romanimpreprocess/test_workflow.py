@@ -474,7 +474,7 @@ def test_run_all(tmp_path):
             [455, 422, 255, 255, 255],
             [455, 424, 0, 0, 0],
         ],
-        dtype=np.int16
+        dtype=np.int16,
     )
     for i in range(np.shape(checkpix)[0]):
         diff = arr[checkpix[i, 0], checkpix[i, 1], :].astype(np.int16) - checkpix[i, -3:]
