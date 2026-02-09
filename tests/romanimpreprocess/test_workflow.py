@@ -465,14 +465,16 @@ def test_run_all(tmp_path):
         tmp_dir + "/roman_wfi_{:s}_" + tag + "_SCA{:02d}.asdf", 128, maskhandling.PixelMask1
     )
     # check a few pixels in the output image
-    checkpix = np.array([
-        [2057, 672, 60, 78, 138],
-        [2057, 1527, 175, 220, 46],
-        [709, 1624, 68, 1, 84],
-        [0, -1, 255, 255, 255],
-        [455, 422, 255, 255, 255],
-        [455, 424, 0, 0, 0]
-    ], dtype=np.int16)
+    checkpix = np.array(
+        [
+            [2057, 672, 60, 78, 138],
+            [2057, 1527, 175, 220, 46],
+            [709, 1624, 68, 1, 84],
+            [0, -1, 255, 255, 255],
+            [455, 422, 255, 255, 255],
+            [455, 424, 0, 0, 0]
+        ],
+    dtype=np.int16)
     for i in range(np.shape(checkpix)[0]):
         diff = arr[checkpix[i, 0], checkpix[i, 1], :].astype(np.int16) - checkpix[i, -3:]
         assert np.all(np.abs(diff) < 16)
