@@ -465,12 +465,17 @@ def test_run_all(tmp_path):
         tmp_dir + "/roman_wfi_{:s}_" + tag + "_SCA{:02d}.asdf", 128, maskhandling.PixelMask1
     )
     # check a few pixels in the output image
-    print(arr[2057, 672, :])
-    print(arr[2057, 1527, :])
-    print(arr[709, 1624, :])
-    print(arr[0, -1, :])
-    print(arr[455, 422:432, 0])
-    assert arr[0, -1, 0] == 0  # will fail
+    checkpix = np.array([
+        [2057, 672, 60, 78, 138],
+        [2057, 1527, 175, 220, 46],
+        [709, 1624, 68, 1, 84],
+        [0, -1, 255, 255, 255],
+        [455, 422, 255, 255, 255],
+        [455, 424, 0, 0, 0]
+    ], dtype=np.int16)
+    for i in range(np.shape(checkpix)[0]):
+        diff = arr[checkpix[i, 0], checkpix[i, 1], :].astype(np.int16) - checkpix[i, -3:]
+        assert np.all(np.abs(diff) < 16)
     Image.fromarray(arr[::-1, :, :]).save("panel_image.png")
 
     sim_to_isim.run_config(
