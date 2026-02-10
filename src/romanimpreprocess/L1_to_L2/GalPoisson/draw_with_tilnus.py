@@ -8,13 +8,6 @@ from scipy.special import betaln, gammainc, gammaincc, loggamma, logsumexp
 from scipy.stats import beta as sp_beta
 from scipy.stats import betaprime, gamma, invgamma, t
 
-# TO-DO:
-
-# 1. Batch draws for Type 4 Devroye samlper (>10x quicker) NOPE NO IT'S NOT
-# 2. Discuss making asymmetric tolerances for masks, make type4 ==> type5
-# 3. Pearson type 5 possible sign error in skewness
-# 4. Code error analysis use analytical moments instead of MC analysis
-# 5. Analyze errors
 
 
 def draw_from_Pearson(
