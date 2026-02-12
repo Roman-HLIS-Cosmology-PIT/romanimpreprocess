@@ -1,6 +1,7 @@
 """A simple test of sim->L2."""
 
 import asdf
+import galsim
 import numpy as np
 from astropy.io import fits
 from romanimpreprocess import pars
@@ -58,10 +59,23 @@ def test_simple(tmp_path):
         print(f["roman"]["meta"])
         fits.PrimaryHDU(f["roman"]["data"]).writeto(tmpdir + "/L1.fits", overwrite=True)
 
+    # Test pseudocalibrate with FITS header
     with Image2D_from_L1(tmpdir + "/sim1.asdf", x.refdata, x.header) as ff:
         ff.pseudocalibrate()
         ff.L2_write_to(tmpdir + "/sim2.asdf")
+        with asdf.open(tmpdir + "/sim2.asdf") as f:
+            ra1, dec1 = f["roman"]["meta"]["wcs"]((0, 0, 4087, 4087), (0, 4087, 0, 4087))
 
+    # Test pseudocalibrate with GalSim WCS
+    with Image2D_from_L1(tmpdir + "/sim1.asdf", x.refdata, galsim.FitsWCS(header=x.header)) as ff2:
+        ff2.pseudocalibrate()
+        ff2.L2_write_to(tmpdir + "/sim2B.asdf")
+        with asdf.open(tmpdir + "/sim2B.asdf") as f2:
+            ra2, dec2 = f2["roman"]["meta"]["wcs"]((0, 0, 4087, 4087), (0, 4087, 0, 4087))
+    print(ra1 - ra2, dec1 - dec2)
+    assert np.all(np.hypot(ra1 - ra2, dec1 - dec2) < 0.11 / 3600.0 / 2.0)
+
+    # Compare to reference
     with asdf.open(tmpdir + "/sim2.asdf") as f:
         # print(f.info())
         print("corners:")
