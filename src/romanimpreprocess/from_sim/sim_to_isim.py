@@ -878,21 +878,21 @@ class Image2D_from_L1(Image2D):
                 break
 
             # should work if this is a GalSim WCS
-            try:
-                header = fits.Header()
-                self.thewcs.writeToFitsHeader(
-                    header, galsim.BoundsI(0, pars.nside_active, 0, pars.nside_active)
-                )
-                # offset to FITS convention -- this is undone later
-                header["CRPIX1"] += 1
-                header["CRPIX2"] += 1
-                wcsobj = Blank()
-                wcsobj.header = Blank()
-                wcsobj.header.header = header
-                warnings.warn("Use of GalSim WCS in calibrate is not fully working yet!")
-                break
-            except Exception:
-                wcsobj = None
+            # try:
+            #     header = fits.Header()
+            #     self.thewcs.writeToFitsHeader(
+            #         header, galsim.BoundsI(0, pars.nside_active, 0, pars.nside_active)
+            #     )
+            #     # offset to FITS convention -- this is undone later
+            #     header["CRPIX1"] += 1
+            #     header["CRPIX2"] += 1
+            #     wcsobj = Blank()
+            #     wcsobj.header = Blank()
+            #     wcsobj.header.header = header
+            #     warnings.warn("Use of GalSim WCS in calibrate is not fully working yet!")
+            #     break
+            # except Exception:
+            #     wcsobj = None
 
             raise Exception("Unrecognized WCS")
 
