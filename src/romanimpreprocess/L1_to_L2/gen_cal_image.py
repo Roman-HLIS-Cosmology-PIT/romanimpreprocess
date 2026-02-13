@@ -306,20 +306,25 @@ def repackage_wcs(thewcs):
             break
 
         # should work if this is a GalSim WCS
-        try:
-            header = fits.Header()
-            thewcs.writeToFitsHeader(header, galsim.BoundsI(0, pars.nside_active, 0, pars.nside_active))
-            # offset to FITS convention -- this is undone later
-            header["CRPIX1"] += 1
-            header["CRPIX2"] += 1
-            wcsobj = Blank()
-            wcsobj.header = Blank()
-            wcsobj.header.header = header
-            warnings.warn("Use of GalSim WCS in calibrate is not fully working yet!")
-            break
-        except Exception as e:
-            wcsobj = None
-            raise Exception("Unrecognized WCS") from e
+        # I commented this option out since I think it has a bug related to the 0 vs 1 offset,
+        # but we're currently not using it.
+        # Make sure to test it if you un-comment this.
+        # -C.H. 02/12/26
+        #
+        # try:
+        #     header = fits.Header()
+        #     thewcs.writeToFitsHeader(header, galsim.BoundsI(0, pars.nside_active, 0, pars.nside_active))
+        #     # offset to FITS convention -- this is undone later
+        #     header["CRPIX1"] += 1
+        #     header["CRPIX2"] += 1
+        #     wcsobj = Blank()
+        #     wcsobj.header = Blank()
+        #     wcsobj.header.header = header
+        #     warnings.warn("Use of GalSim WCS in calibrate is not fully working yet!")
+        #     break
+        # except Exception as e:
+        #     wcsobj = None
+        #    raise Exception("Unrecognized WCS") from e
 
     return wcsobj
 
