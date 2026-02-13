@@ -68,12 +68,16 @@ def test_simple(tmp_path):
 
     # Test pseudocalibrate with GalSim WCS
     with Image2D_from_L1(tmpdir + "/sim1.asdf", x.refdata, galsim.FitsWCS(header=x.header)) as ff2:
-        ff2.pseudocalibrate()
-        ff2.L2_write_to(tmpdir + "/sim2B.asdf")
-        with asdf.open(tmpdir + "/sim2B.asdf") as f2:
-            ra2, dec2 = f2["roman"]["meta"]["wcs"]((0, 0, 4087, 4087), (0, 4087, 0, 4087))
-    print(ra1 - ra2, dec1 - dec2)
-    assert np.all(np.hypot(ra1 - ra2, dec1 - dec2) < 0.11 / 3600.0 / 2.0)
+        try:
+            ff2.pseudocalibrate()
+        except Exception as e:
+            assert str(e) == "Unrecognized WCS"
+    # this is for when we put the GalSim WCS option back
+    #     ff2.L2_write_to(tmpdir + "/sim2B.asdf")
+    #     with asdf.open(tmpdir + "/sim2B.asdf") as f2:
+    #         ra2, dec2 = f2["roman"]["meta"]["wcs"]((0, 0, 4087, 4087), (0, 4087, 0, 4087))
+    # print(ra1 - ra2, dec1 - dec2)
+    # assert np.all(np.hypot(ra1 - ra2, dec1 - dec2) < 0.11 / 3600.0 / 2.0)
 
     # Compare to reference
     with asdf.open(tmpdir + "/sim2.asdf") as f:
