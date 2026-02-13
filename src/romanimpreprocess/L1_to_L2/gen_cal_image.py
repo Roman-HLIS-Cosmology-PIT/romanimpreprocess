@@ -490,6 +490,7 @@ def calibrateimage(config, verbose=True):
     #                                                    but it isn't essential
     if "cal_step" in im2["meta"]:
         im2["meta"]["cal_step"]["wfi18_transient"] = "INCOMPLETE"
+        im2["meta"]["cal_step"]["dark_decay"] = "INCOMPLETE"
     oututils.add_in_provenance(im2, "gen_cal_image")
 
     # process information specific to this code
