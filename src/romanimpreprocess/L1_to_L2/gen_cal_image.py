@@ -19,13 +19,13 @@ calibrateimage
 """
 
 import sys
-import warnings
+import warnings  # noqa: F401
 from copy import deepcopy
 
 import asdf
 
 # not actually doing a simulation but needed to pass around the WCS types
-import galsim
+import galsim  # noqa: F401
 import numpy as np
 import yaml
 from astropy import units as u
