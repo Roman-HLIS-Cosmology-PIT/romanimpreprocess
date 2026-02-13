@@ -754,6 +754,7 @@ class Image2D:
         # may need this data
         if "cal_step" in im2["meta"]:
             im2["meta"]["cal_step"]["wfi18_transient"] = "INCOMPLETE"
+            im2["meta"]["cal_step"]["dark_decay"] = "INCOMPLETE"
 
         # Create metadata for simulation parameter
         romanisimdict2 = {"version": rstversion}
@@ -908,6 +909,7 @@ class Image2D_from_L1(Image2D):
         # we didn't do this step
         if "cal_step" in im2["meta"]:
             im2["meta"]["cal_step"]["wfi18_transient"] = "INCOMPLETE"
+            im2["meta"]["cal_step"]["dark_decay"] = "INCOMPLETE"
 
         # Create metadata for simulation parameter
         romanisimdict2 = {"version": rstversion}
