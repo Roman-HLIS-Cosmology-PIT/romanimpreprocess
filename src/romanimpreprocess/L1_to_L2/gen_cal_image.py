@@ -28,7 +28,6 @@ import asdf
 import galsim  # noqa: F401
 import numpy as np
 import yaml
-from astropy import units as u
 from astropy.io import fits
 from roman_datamodels.dqflags import pixel
 from romanisim import image as rimage
@@ -473,9 +472,9 @@ def calibrateimage(config, verbose=True):
         skyorder = -1  # not used
 
     im2, extras2 = rimage.make_asdf(
-        slope[nb:-nb, nb:-nb] * u.DN / u.s,
-        (slope_err_read[nb:-nb, nb:-nb] * u.DN / u.s) ** 2,
-        (slope_err_poisson[nb:-nb, nb:-nb] * u.DN / u.s) ** 2,
+        slope[nb:-nb, nb:-nb],
+        (slope_err_read[nb:-nb, nb:-nb]) ** 2,
+        (slope_err_poisson[nb:-nb, nb:-nb]) ** 2,
         metadata=l1meta,
         persistence=persistence,
         dq=pdq[nb:-nb, nb:-nb],
@@ -526,7 +525,7 @@ def calibrateimage(config, verbose=True):
     # Write file
     with asdf.AsdfFile() as af2:
         af2.tree = {"roman": im2, "processinfo": processinfo}
-        af2.tree["roman"]["data_withsky"] = slope_withsky[nb:-nb, nb:-nb] * u.DN / u.s
+        af2.tree["roman"]["data_withsky"] = slope_withsky[nb:-nb, nb:-nb]
         if "cal_step" in af2.tree["roman"]["meta"]:
             print(af2.tree["roman"]["meta"]["cal_step"])
         else:
