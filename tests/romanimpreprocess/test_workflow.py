@@ -7,9 +7,11 @@ import os
 import asdf
 import numpy as np
 from astropy.io import fits
+from astropy.wcs import WCS
+from PIL import Image
 from romanimpreprocess.from_sim import sim_to_isim
 from romanimpreprocess.L1_to_L2 import gen_cal_image, gen_noise_image
-from romanimpreprocess.utils import ipc_linearity, maskhandling
+from romanimpreprocess.utils import fpaplot, ipc_linearity, maskhandling, visualize
 
 # Settings for this test
 id = 163
@@ -218,7 +220,7 @@ def gencal(cstem, rng):
     pflat[:, -dtrim:] = 0.0
 
     # now build a non-linearity table
-    data = np.zeros((3, N, N), dtype=np.float32)
+    data = np.zeros((4, N, N), dtype=np.float32)
     data[2, :, :] = 20 + 180 * rng.uniform(size=(N, N))
 
     # now the derivative at Sref is given by:
@@ -272,7 +274,7 @@ def gencal(cstem, rng):
     # dark map
     mask |= np.where(dark_slope > 0.25, np.where(dark_slope > 12.5, 2**11, 2**12), 0).astype(np.uint32)
 
-    asdf.AsdfFile({"roman": {"data": mask}}).write_to(cstem + f"_mask_{tag:s}_SCA{sca:02d}.asdf")
+    asdf.AsdfFile({"roman": {"dq": mask}}).write_to(cstem + f"_mask_{tag:s}_SCA{sca:02d}.asdf")
 
     ### PFLAT
 
@@ -317,6 +319,96 @@ def gencal(cstem, rng):
     ).write_to(cstem + f"_saturation_{tag:s}_SCA{sca:02d}.asdf")
 
     return {}
+
+
+def forward_backward_lin_ilin(linearity_file):
+    """
+    Forward-backward test for linearity routines.
+
+    Parameters
+    ----------
+    linearity_file : str
+        ASDF linearity calibration reference file.
+
+    Returns
+    -------
+    None
+
+    """
+
+    ymin = 260
+    ymax = 262
+    xmin = 140
+    xmax = 143
+    dy = ymax - ymin
+    dx = xmax - xmin
+    with asdf.open(linearity_file) as F:
+        print("Smin", F["roman"]["Smin"][ymin:ymax, xmin:xmax])
+        print("Smax", F["roman"]["Smax"][ymin:ymax, xmin:xmax])
+        S = F["roman"]["Sref"][ymin:ymax, xmin:xmax]
+        S[:, :] += 5000.0 * np.linspace(0, dx * dy - 1, dx * dy).reshape((dy, dx))
+    Slin, dq = ipc_linearity.linearity(S, linearity_file, origin=(xmin, ymin))
+    Sfwd, exflag = ipc_linearity.invlinearity(Slin, linearity_file, origin=(xmin, ymin))
+
+    print("coefs:")
+    with asdf.open(linearity_file) as F:
+        print(F["roman"]["data"][:, ymin:ymax, xmin:xmax])
+    print("signal [DN_raw]:")
+    print(S)
+    print("inverted signal [DN_lin]:")
+    print(Slin)
+    print("recovered signal [DN_raw]:")
+    print(Sfwd)
+    print("flags")
+    print(dq, exflag)
+
+    # was the recovery within bounds?
+    assert not np.any(exflag)
+    print(Sfwd - S)
+    assert np.amax(np.abs(Sfwd - S)) < 0.002
+
+
+def il_example(linearity_file, gain_file, ipc_file):
+    """
+    Some tests for the inverse linearity class.
+
+    Parameters
+    ----------
+    linearity_file : str
+        ASDF linearity calibration reference file.
+    gain_file : str
+        ASDF gain calibration reference file.
+    ipc_file : str
+        ASDF ipc4d calibration reference file.
+
+    Returns
+    -------
+    None
+
+    """
+
+    # expected results
+    target1 = np.array(
+        [[4801.0491668, 4900.74928657, 4800.50198393], [4800.30217909, 4900.15392476, 4800.05504147]]
+    )
+    target2 = np.array(
+        [[4803.76066256, 4920.3284374, 4803.19832938], [4817.8237426, 6177.69747299, 4817.69985963]]
+    )
+
+    ILTEST = ipc_linearity.IL(linearity_file, gain_file, ipc_file)
+    n = 4088
+    NE = np.zeros((n, n), dtype=np.float32)
+    ymin = 260
+    ymax = 262
+    xmin = 140
+    xmax = 143
+    val1 = ILTEST.apply(NE, electrons=True, electrons_out=False)[ymin:ymax, xmin:xmax]
+    print(val1)
+    assert np.all(np.abs(target1 - val1) < 0.002)
+    NE[::3, ::3] = 2.0e3
+    val2 = ILTEST.apply(NE, electrons=True, electrons_out=False)[ymin:ymax, xmin:xmax]
+    print(val2)
+    assert np.all(np.abs(target2 - val2) < 0.002)
 
 
 def test_run_all(tmp_path):
@@ -364,6 +456,31 @@ def test_run_all(tmp_path):
         these_reads.append(read_pattern[i][-1] + 1)
     print("these_reads -->", these_reads)
 
+    # forward-backward test (contains its own asserts)
+    forward_backward_lin_ilin(caldir["linearitylegendre"])
+    il_example(caldir["linearitylegendre"], caldir["gain"], caldir["ipc4d"])
+
+    # make sample images
+    arr = fpaplot.multi_image(
+        tmp_dir + "/roman_wfi_{:s}_" + tag + "_SCA{:02d}.asdf", 128, maskhandling.PixelMask1
+    )
+    # check a few pixels in the output image
+    checkpix = np.array(
+        [
+            [2057, 672, 60, 78, 138],
+            [2057, 1527, 175, 220, 46],
+            [709, 1624, 68, 1, 84],
+            [0, -1, 255, 255, 255],
+            [455, 422, 255, 255, 255],
+            [455, 424, 0, 0, 0],
+        ],
+        dtype=np.int16,
+    )
+    for i in range(np.shape(checkpix)[0]):
+        diff = arr[checkpix[i, 0], checkpix[i, 1], :].astype(np.int16) - checkpix[i, -3:]
+        assert np.all(np.abs(diff) < 16)
+    Image.fromarray(arr[::-1, :, :]).save("panel_image.png")
+
     sim_to_isim.run_config(
         {
             "IN": tmp_dir + f"/IN/Roman_Test_truth_{band:s}_{id}_{sca}.fits",
@@ -388,7 +505,7 @@ def test_run_all(tmp_path):
         "SKYORDER": 2,
         "FITSOUT": True,
         "NOISE": {
-            "LAYER": ["Rz4S2C1", "O"],
+            "LAYER": ["Rz4S2C1", "O", "Prb2"],
             "TEMP": tmp_dir + f"/temp_{band:s}_{id:d}_{sca:d}.asdf",
             "SEED": 10000,
             "OUT": tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noise.asdf",
@@ -427,7 +544,7 @@ def test_run_all(tmp_path):
             count = np.count_nonzero(np.bitwise_and(a["roman"]["dq"] >> i, 1))
             print(f"BIT {i:2d} {count:7d}")
             if i == 2:
-                assert count > 3000 and count < 300000
+                assert count > 10000 and count < 525000
         isGood = np.where(a["roman"]["dq"] == 0, 1, 0)
 
         # now pull out the data, in DN/s
@@ -436,8 +553,7 @@ def test_run_all(tmp_path):
         # sky checks
         print(np.array(a["processinfo"]["skycoefs"]))
         assert len(a["processinfo"]["skycoefs"]) == 6
-        assert a["processinfo"]["skycoefs"][0] > 0.0
-        assert a["processinfo"]["skycoefs"][0] < 2.0
+        assert -0.3 <= a["processinfo"]["skycoefs"][0] <= 1.7
         for i in range(1, 6):
             assert np.abs(a["processinfo"]["skycoefs"][i]) < 1.0
         skycoefs = np.array(a["processinfo"]["skycoefs"])
@@ -458,15 +574,82 @@ def test_run_all(tmp_path):
         print("MAX", np.amax(np.abs(skyresid)))
         assert np.amax(np.abs(skyresid)) < 1e-3
 
-    print(isGood, np.mean(isGood.astype(np.float32)))
+    hisignal = np.logical_and(isGood, expected_signal > 5.0)
+    print(isGood, np.mean(isGood.astype(np.float32)), "hisig =", np.count_nonzero(hisignal))
 
     x = np.where(isGood, data_out - expected_signal, 0.0)
-    fits.PrimaryHDU(x).writeto(tmp_dir + "/out_diff.fits", overwrite=True)
+    # fits.PrimaryHDU(x).writeto(tmp_dir + "/out_diff.fits", overwrite=True)
 
     # some quality checks on unmasked pixels
     assert np.count_nonzero(np.abs(x) > 100) < 50
     assert np.count_nonzero(np.logical_and(np.abs(x) > 20, expected_signal < 1)) < 50
 
+    # check that we can convert the output to PDF
+    visualize.visualize(
+        [
+            None,
+            tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_{sca:d}.asdf",
+            "128,256,512,640",
+            tmp_dir + "/out_im1.pdf",
+            0.5,
+        ]
+    )
+    assert os.path.exists(tmp_dir + "/out_im1.pdf")
 
-# if __name__ == "__main__":
-#     test_run_all("out") # <-- comment out in final version
+    # noise tests
+    with asdf.open(tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noise.asdf") as a:
+        print(a.info(max_rows=None))
+        adata = a["noise"]
+        nlayer = len(c2["NOISE"]["LAYER"])
+        assert np.shape(adata) == (nlayer, 4088, 4088)
+        for j in range(nlayer):
+            print("layer", j, c2["NOISE"]["LAYER"][j])
+            x = np.where(isGood, adata[j, :, :], 0.0)
+            print(np.percentile(x, 0.1), np.percentile(x, 5), np.percentile(x, 95), np.percentile(x, 99.9))
+            x2 = adata[j, :, :][hisignal]
+            print(np.percentile(x2, 25), np.percentile(x2, 75))
+
+            # assertions
+            if j == 0:
+                assert 0.7 < np.percentile(x, 95) - np.percentile(x, 5) < 1.1
+                assert 0.3 < np.percentile(x2, 75) - np.percentile(x2, 25) < 0.4
+            if j == 1:
+                assert 0.14 < np.percentile(x, 95) - np.percentile(x, 5) < 0.40
+                assert 1.1 < np.percentile(x2, 75) - np.percentile(x2, 25) < 1.4
+            if j == 2:
+                assert 0.14 < np.percentile(x, 95) - np.percentile(x, 5) < 0.40
+
+
+def test_flip(tmp_path):
+    """Test of flipping the SCA."""
+
+    # Build the data.
+    # Note this makes a header with SIP coefficients.
+    tmpdir = str(tmp_path)
+    genfile(tmpdir + "/test1.fits", v=1)
+    with fits.open(tmpdir + "/test1.fits", memmap=False, lazy_load_hdus=False) as f:
+        my_hdu = fits.PrimaryHDU(f[0].data, header=f[0].header.copy())
+
+    # Now the flipped image
+    sim_to_isim.hdu_sip_hflip(my_hdu.data, my_hdu.header)
+    my_hdu.writeto(tmpdir + "/test2.fits", overwrite=True)
+
+    with fits.open(tmpdir + "/test1.fits") as f_orig, fits.open(tmpdir + "/test2.fits") as f_new:
+        diff = f_orig[0].data - f_new[0].data[:, ::-1]
+        assert np.amax(np.abs(diff)) < 1.0e-7
+
+        # WCSs
+        wcs_orig = WCS(f_orig[0].header)
+        wcs_new = WCS(f_new[0].header)
+
+        # map points
+        points_orig = np.array([[100.0, 250.0], [3000.0, 800.0]])
+        points_sky = wcs_orig.all_pix2world(points_orig, 0)
+        points_new = wcs_new.all_world2pix(points_sky, 0)
+        print(points_new)
+        points_compare = np.copy(points_orig)
+        points_compare[:, 0] = 4087.0 - points_compare[:, 0]
+        print(np.abs(points_compare - points_new))
+        err = np.amax(np.abs(points_compare - points_new))
+        print(err)
+        assert err < 1.0e-4

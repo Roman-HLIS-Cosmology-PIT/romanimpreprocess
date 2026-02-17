@@ -25,11 +25,6 @@ import matplotlib
 import numpy as np
 from PIL import Image
 
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
-plt.switch_backend("agg")
-
 # focal plane parameters
 nside_base = 4096
 # the below are in units of pixels ( = 0.01 mm)
@@ -187,7 +182,7 @@ def write_text(image, origin, size, val, string):
         posx += size * 8
 
 
-def make_big_image(infile_format, n1, ptype, vmin=0.0, vmax=1.0, mask=None, cmap="viridis", scale=None):
+def make_big_image(infile_format, n1, ptype, vmin=0.0, vmax=1.0, mask=None, cmap="viridis", scaleformat=None):
     """
     Makes an RGB image of the focal plane.
 
@@ -207,7 +202,7 @@ def make_big_image(infile_format, n1, ptype, vmin=0.0, vmax=1.0, mask=None, cmap
         Builds a mask based on the indicated class.
     cmap : str, optional
         Display color scale.
-    scale : str, optional
+    scaleformat : str, optional
         Format string for the color bar.
 
     Returns
@@ -247,7 +242,7 @@ def make_big_image(infile_format, n1, ptype, vmin=0.0, vmax=1.0, mask=None, cmap
         posy = (ctrs[scanum - 1, 1] - nside_base // 2 - bbox["ymin"]) // scale
         arr[posy : posy + n1, posx : posx + n1, :] = cmap(myImage, bytes=True)[:, :, :3]
 
-    if scale is not None:
+    if scaleformat is not None:
         arr[-(n1 // 8) :, nx // 2 - n1 : nx // 2 + n1, :] = cmap(np.linspace(0, 1, 2 * n1), bytes=True)[
             None, :, :3
         ]
@@ -255,7 +250,7 @@ def make_big_image(infile_format, n1, ptype, vmin=0.0, vmax=1.0, mask=None, cmap
         posy = ny - n1 // 8 - 15 * sc
         for j in range(3):
             arr[-(n1 // 8) - 2 * sc : -(n1 // 8), nx // 2 - n1 + j * n1 : nx // 2 - n1 + j * n1 + sc, :] = 0
-            txt = scale.format(j / 2.0 * (vmax - vmin) + vmin)
+            txt = scaleformat.format(j / 2.0 * (vmax - vmin) + vmin)
             posx = nx // 2 - n1 + n1 * j - 3 * sc * len(txt)
             for l_ in range(3):
                 write_text(arr[:, :, l_], (posy, posx), sc, 0, txt)
@@ -304,35 +299,47 @@ def multi_image(infile_format, n1, masktype):
 
     # linearity
     my_images.append(
-        make_big_image(infile_format, n1, "lin2", vmin=-100.0, vmax=2900.0, scale="{:4.0f}", mask=masktype)
+        make_big_image(
+            infile_format, n1, "lin2", vmin=-100.0, vmax=2900.0, scaleformat="{:4.0f}", mask=masktype
+        )
     )
     my_images.append(
-        make_big_image(infile_format, n1, "lin3", vmin=-100.0, vmax=1500.0, scale="{:4.0f}", mask=masktype)
+        make_big_image(
+            infile_format, n1, "lin3", vmin=-100.0, vmax=1500.0, scaleformat="{:4.0f}", mask=masktype
+        )
     )
 
     # gain
     my_images.append(
-        make_big_image(infile_format, n1, "gain", vmin=1.2, vmax=2.1, scale="{:4.2f}", mask=masktype)
+        make_big_image(infile_format, n1, "gain", vmin=1.2, vmax=2.1, scaleformat="{:4.2f}", mask=masktype)
     )
 
     # IPC
     my_images.append(
-        make_big_image(infile_format, n1, "alphaD", vmin=0.0, vmax=0.004, scale="{:5.3f}", mask=masktype)
+        make_big_image(
+            infile_format, n1, "alphaD", vmin=0.0, vmax=0.004, scaleformat="{:5.3f}", mask=masktype
+        )
     )
     my_images.append(
-        make_big_image(infile_format, n1, "alphaH", vmin=0.005, vmax=0.025, scale="{:5.3f}", mask=masktype)
+        make_big_image(
+            infile_format, n1, "alphaH", vmin=0.005, vmax=0.025, scaleformat="{:5.3f}", mask=masktype
+        )
     )
     my_images.append(
-        make_big_image(infile_format, n1, "alphaV", vmin=0.005, vmax=0.025, scale="{:5.3f}", mask=masktype)
+        make_big_image(
+            infile_format, n1, "alphaV", vmin=0.005, vmax=0.025, scaleformat="{:5.3f}", mask=masktype
+        )
     )
 
     # flat
     my_images.append(
-        make_big_image(infile_format, n1, "pflatnorm", vmin=0.8, vmax=1.2, scale="{:4.2f}", mask=masktype)
+        make_big_image(
+            infile_format, n1, "pflatnorm", vmin=0.8, vmax=1.2, scaleformat="{:4.2f}", mask=masktype
+        )
     )
     # read noise
     my_images.append(
-        make_big_image(infile_format, n1, "read", vmin=4.0, vmax=9.0, scale="{:4.1f}", mask=masktype)
+        make_big_image(infile_format, n1, "read", vmin=4.0, vmax=9.0, scaleformat="{:4.1f}", mask=masktype)
     )
 
     # now the whole image

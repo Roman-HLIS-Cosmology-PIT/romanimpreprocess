@@ -16,8 +16,7 @@ You will need to install:
 * `galsim <https://galsim-developers.github.io/GalSim/_build/html/overview.html>`_: This is a general-purpose package used for image simulations 
   (romanisim is built on top of it).
 
-* `romanisim <https://github.com/spacetelescope/romanisim>`_: This is a Roman-specific image simulator (in development; testing here is with commit 
-  ``910af8f``, from August 2025). ``romanimpreprocess.from_sim`` uses the ``romanisim`` 
+* `romanisim <https://github.com/spacetelescope/romanisim>`_: This is a Roman-specific image simulator. ``romanimpreprocess.from_sim`` uses the ``romanisim`` 
   functions rather than calling the whole script, since we are generating ramps from a 2D image rather than a catalog.
 
 * `romancal <https://roman-pipeline.readthedocs.io/en/latest/>`_: The Roman pipeline to go from Level 1 (uncalibrated, 3D) to Level 2 (calibrated, 2D) 
@@ -44,7 +43,9 @@ You can convert an OpenUniverse truth image file by running the ``sim_to_isim`` 
 
   python3 -m romanimpreprocess.from_sim.sim_to_isim config.yaml
 
-The simplest configuration ``config.yaml`` that you can run is as follows::
+The simplest configuration ``config.yaml`` that you can run is as follows:
+
+.. code: yaml
 
   ---
   # Input file
@@ -64,7 +65,9 @@ Here:
 This will generate both the output (simulated L1) file, and the truth WCS file, in this case ``sim1_asdf_wcshead.txt`` (which exists in the simulation 
 but wouldn't be part of the real data).
 
-It is also possible to include a dictionary of calibration reference files::
+It is also possible to include a dictionary of calibration reference files:
+
+.. code: yaml
 
   # reference files -- see sample_Step0.yaml
   CALDIR:
@@ -105,11 +108,15 @@ You can (partially) convert an L1 image (unprocessed data) to an L2 image (2D wi
 
 - Not all of the metadata and error arrays populate correctly in this version. We're working on it!
 
-The script can be run via::
+The script can be run via:
+
+.. code:: bash
 
   python3 -m romanimpreprocess.L1_to_L2.gen_cal_image config_L1_to_L2.yaml
 
-The simplest configuration ``config_L1_to_L2.yaml`` that you can run is as follows::
+The simplest configuration ``config_L1_to_L2.yaml`` that you can run is as follows:
+
+.. code:: yaml
 
   ---
   # Input file
@@ -140,6 +147,8 @@ This will generate the output (simulated L2) file, with the provided WCS (in thi
 ``sim1_asdf_wcshead.txt``) included.
 
 See `the L1_to_L2 Readme <docs/L1_to_L2_README.rst>`_ for detailed instructions and all the options.
+
+**Important note**: Sometimes the SOC L2 data model is updated with new schema entries that aren't in the PIT L2 files. This means legacy pipelines that don't use the new schema entries will raise an exception if a dependency is updated with a newer version of the schema. We have marked these with the ``["roman"]["meta"]["dummyfields"]`` entry in the ASDF tree and inserted a dummy (generally array of zeros) so that the pipeline will run. Please check for that field if you run code that expects a SOC L2 file.
 
 Utilities
 *********

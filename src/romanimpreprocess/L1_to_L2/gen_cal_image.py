@@ -19,13 +19,13 @@ calibrateimage
 """
 
 import sys
-import warnings
+import warnings  # noqa: F401
 from copy import deepcopy
 
 import asdf
 
 # not actually doing a simulation but needed to pass around the WCS types
-import galsim
+import galsim  # noqa: F401
 import numpy as np
 import yaml
 from astropy import units as u
@@ -48,6 +48,7 @@ from ..utils import (
     processlog,
     reference_subtraction,
     sky,
+    typefix,
 )
 
 # local imports
@@ -305,20 +306,25 @@ def repackage_wcs(thewcs):
             break
 
         # should work if this is a GalSim WCS
-        try:
-            header = fits.Header()
-            thewcs.writeToFitsHeader(header, galsim.BoundsI(0, pars.nside_active, 0, pars.nside_active))
-            # offset to FITS convention -- this is undone later
-            header["CRPIX1"] += 1
-            header["CRPIX2"] += 1
-            wcsobj = Blank()
-            wcsobj.header = Blank()
-            wcsobj.header.header = header
-            warnings.warn("Use of GalSim WCS in calibrate is not fully working yet!")
-            break
-        except Exception as e:
-            wcsobj = None
-            raise Exception("Unrecognized WCS") from e
+        # I commented this option out since I think it has a bug related to the 0 vs 1 offset,
+        # but we're currently not using it.
+        # Make sure to test it if you un-comment this.
+        # -C.H. 02/12/26
+        #
+        # try:
+        #     header = fits.Header()
+        #     thewcs.writeToFitsHeader(header, galsim.BoundsI(0, pars.nside_active, 0, pars.nside_active))
+        #     # offset to FITS convention -- this is undone later
+        #     header["CRPIX1"] += 1
+        #     header["CRPIX2"] += 1
+        #     wcsobj = Blank()
+        #     wcsobj.header = Blank()
+        #     wcsobj.header.header = header
+        #     warnings.warn("Use of GalSim WCS in calibrate is not fully working yet!")
+        #     break
+        # except Exception as e:
+        #     wcsobj = None
+        #    raise Exception("Unrecognized WCS") from e
 
     return wcsobj
 
@@ -482,6 +488,9 @@ def calibrateimage(config, verbose=True):
     # update the metadata
     # oututils.update_flags(im2, "gen_cal_image") # <-- this doesn't work with updated roman_datamodels,
     #                                                    but it isn't essential
+    if "cal_step" in im2["meta"]:
+        im2["meta"]["cal_step"]["wfi18_transient"] = "INCOMPLETE"
+        im2["meta"]["cal_step"]["dark_decay"] = "INCOMPLETE"
     oututils.add_in_provenance(im2, "gen_cal_image")
 
     # process information specific to this code
@@ -518,6 +527,11 @@ def calibrateimage(config, verbose=True):
     with asdf.AsdfFile() as af2:
         af2.tree = {"roman": im2, "processinfo": processinfo}
         af2.tree["roman"]["data_withsky"] = slope_withsky[nb:-nb, nb:-nb] * u.DN / u.s
+        if "cal_step" in af2.tree["roman"]["meta"]:
+            print(af2.tree["roman"]["meta"]["cal_step"])
+        else:
+            print("cal_step not in roman->meta")
+        typefix.fix(af2)
         with open(config["OUT"], "wb") as f:
             af2.write_to(f)
 

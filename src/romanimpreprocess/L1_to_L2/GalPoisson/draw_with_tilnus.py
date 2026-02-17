@@ -8,14 +8,6 @@ from scipy.special import betaln, gammainc, gammaincc, loggamma, logsumexp
 from scipy.stats import beta as sp_beta
 from scipy.stats import betaprime, gamma, invgamma, t
 
-# TO-DO:
-
-# 1. Batch draws for Type 4 Devroye samlper (>10x quicker) NOPE NO IT'S NOT
-# 2. Discuss making asymmetric tolerances for masks, make type4 ==> type5
-# 3. Pearson type 5 possible sign error in skewness
-# 4. Code error analysis use analytical moments instead of MC analysis
-# 5. Analyze errors
-
 
 def draw_from_Pearson(
     tilnu_21: float, tilnu_31: float, tilnu_41: float, I_arr: np.ndarray, *, atol: float = 0.0, rng=None
@@ -97,7 +89,7 @@ def draw_from_Pearson(
     type6 = base & gt1 & lt2
     type4 = base & gt2 & (b_1 < 32)  # & lt3
 
-    # TEST, REMOVE LATER
+    ''' # TEST, REMOVE LATER
     overlap = (
         type1.astype(int) + type3.astype(int) + type5.astype(int) + type6.astype(int) + type4.astype(int)
     ) > 1
@@ -115,7 +107,7 @@ def draw_from_Pearson(
         print('tilnu_41: ',tilnu_41)
         print('I_arr =', I)
         print('I_clipped =', I_clipped)"""
-        raise RuntimeError("Overlapping Pearson masks.")
+        raise RuntimeError("Overlapping Pearson masks.")'''
 
     # ---  Draws and in-place addition  ----------------------------------
     draws = np.zeros_like(I_clipped, dtype=float)

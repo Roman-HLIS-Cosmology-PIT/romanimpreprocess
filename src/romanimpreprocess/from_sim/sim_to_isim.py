@@ -31,6 +31,7 @@ Image2D_from_L1
 """
 
 import copy
+import inspect
 import re
 import sys
 import warnings
@@ -51,6 +52,7 @@ from romanisim import persistence as rip
 from romanisim import ris_make_utils as ris
 
 from .. import pars
+from ..utils import typefix
 from ..utils.coordutils import pixelarea
 
 # local imports
@@ -513,7 +515,7 @@ class Image2D:
         self.dec_ = float(self.header["DEC_TARG"])
         self.pa_ = float(self.header["PA_OBSY"])
 
-    def simulate(self, use_read_pattern, caldir=None, config={}, seed=43):
+    def simulate(self, use_read_pattern, caldir=None, config={}, seed=43, includewcs=False):
         """
         Performs Level 1 & 2 simulations.
 
@@ -531,6 +533,8 @@ class Image2D:
             Configuration file (usually expanded from YAML).
         seed : int, optional
             Random number seed.
+        includewcs : bool, optional
+            If True, includes the GWCS in the output file.
 
         Returns
         -------
@@ -578,6 +582,14 @@ class Image2D:
         nborder = parameters.nborder
 
         # simulate a blank image
+        # note that newer versions of romanisim need psftype, but older ones don't, so
+        # this should be OK either way?
+        psfpar = dict()
+        args = inspect.signature(rimage.simulate_counts).parameters
+        choices = {"psftype": "galsim", "stpsf": False, "webbpsf": False}
+        for a in list(choices.keys()):
+            if a in args:
+                psfpar[a] = choices[a]
         if caldir is None:
             counts, simcatobj = rimage.simulate_counts(
                 image_mod.meta,
@@ -587,7 +599,17 @@ class Image2D:
                 darkrate=refdata["dark"],
                 flat=refdata["flat"],
                 psf_keywords=dict(),
+                **psfpar,
             )
+            nside_sub = pars.nside - 2 * nborder
+            this_flat = 1.0 * np.ones(
+                (nside_sub, nside_sub), dtype=np.float32
+            )  # dummy, prevent an error later
+            try:
+                _g = float(parameters.reference_data["gain"])
+            except TypeError:
+                _g = float(parameters.reference_data["gain"].value)
+            g = _g * np.ones((nside_sub, nside_sub), dtype=np.float32)  # dummy, prevent an error later
         else:
             # get dark current in DN/p/s
             with asdf.open(caldir["dark"]) as f:
@@ -618,6 +640,7 @@ class Image2D:
                 darkrate=this_dark,
                 flat=this_flat,
                 psf_keywords=dict(),
+                **psfpar,
             )
         util.update_pointing_and_wcsinfo_metadata(image_mod.meta, counts.wcs)
 
@@ -686,6 +709,10 @@ class Image2D:
         romanisimdict = {"version": rstversion}
         # for storage reasons, I took out all the large metadata arrays in romanisimdict
 
+        # include the gwcs
+        if includewcs:
+            romanisimdict["wcs"] = wcs.wcs_from_fits_header(self.header)
+
         # Write file
         self.af = asdf.AsdfFile()
         self.af.tree = {"roman": im, "romanisim": romanisimdict}
@@ -723,6 +750,11 @@ class Image2D:
         # functionality to pull over the WCS from L1 without dependence on wcs.convert_wcs_to_gwcs
         # im2['roman']['meta'].update(wcs=this_gwcs)
         # im2['roman']['meta']['wcsinfo']['s_region'] = wcs.create_s_region(this_gwcs)
+
+        # may need this data
+        if "cal_step" in im2["meta"]:
+            im2["meta"]["cal_step"]["wfi18_transient"] = "INCOMPLETE"
+            im2["meta"]["cal_step"]["dark_decay"] = "INCOMPLETE"
 
         # Create metadata for simulation parameter
         romanisimdict2 = {"version": rstversion}
@@ -771,6 +803,7 @@ class Image2D:
         """
 
         if hasattr(self, "af2"):
+            typefix.fix(self.af2)
             with open(filename, "wb") as f:
                 self.af2.write_to(f)
         else:
@@ -805,7 +838,7 @@ class Image2D_from_L1(Image2D):
         self.refdata = refdata
         self.thewcs = thewcs
 
-    def psuedocalibrate(self):
+    def pseudocalibrate(self):
         """Generates a simple calibrated (L2) image.
 
         This doesn't use romancal, but can be useful as a pass-through function.
@@ -846,21 +879,21 @@ class Image2D_from_L1(Image2D):
                 break
 
             # should work if this is a GalSim WCS
-            try:
-                header = fits.Header()
-                self.thewcs.writeToFitsHeader(
-                    header, galsim.BoundsI(0, pars.nside_active, 0, pars.nside_active)
-                )
-                # offset to FITS convention -- this is undone later
-                header["CRPIX1"] += 1
-                header["CRPIX2"] += 1
-                wcsobj = Blank()
-                wcsobj.header = Blank()
-                wcsobj.header.header = header
-                warnings.warn("Use of GalSim WCS in calibrate is not fully working yet!")
-                break
-            except Exception:
-                wcsobj = None
+            # try:
+            #     header = fits.Header()
+            #     self.thewcs.writeToFitsHeader(
+            #         header, galsim.BoundsI(0, pars.nside_active, 0, pars.nside_active)
+            #     )
+            #     # offset to FITS convention -- this is undone later
+            #     header["CRPIX1"] += 1
+            #     header["CRPIX2"] += 1
+            #     wcsobj = Blank()
+            #     wcsobj.header = Blank()
+            #     wcsobj.header.header = header
+            #     warnings.warn("Use of GalSim WCS in calibrate is not fully working yet!")
+            #     break
+            # except Exception:
+            #     wcsobj = None
 
             raise Exception("Unrecognized WCS")
 
@@ -873,6 +906,10 @@ class Image2D_from_L1(Image2D):
             imwcs=wcsobj,
             gain=refdata["gain"],
         )
+        # we didn't do this step
+        if "cal_step" in im2["meta"]:
+            im2["meta"]["cal_step"]["wfi18_transient"] = "INCOMPLETE"
+            im2["meta"]["cal_step"]["dark_decay"] = "INCOMPLETE"
 
         # Create metadata for simulation parameter
         romanisimdict2 = {"version": rstversion}
@@ -881,53 +918,6 @@ class Image2D_from_L1(Image2D):
         # Write file
         self.af2 = asdf.AsdfFile()
         self.af2.tree = {"roman": im2, "romanisim": romanisimdict2}
-
-
-def simpletest():
-    """
-    This is a simple script to convert Roman to L1/L2.
-    For internal testing only, not production.
-    """
-
-    use_read_pattern = [
-        [0],
-        [1],
-        [2, 3],
-        [4, 5, 6, 7, 8, 9],
-        [10, 11, 12, 13, 14, 15],
-        [16, 17, 18, 19, 20, 21, 22, 23],
-        [24, 25, 26, 27, 28, 29, 30, 31, 32, 33],
-        [34],
-    ]
-
-    x = Image2D(
-        "anlsim",
-        fname="/fs/scratch/PCON0003/cond0007/anl-run-in-prod/truth/Roman_WAS_truth_F184_14747_10.fits",
-    )
-    print(x.galsimwcs)
-    print(x.date, x.idsca)
-    print(">>", x.image)
-    x.simulate(use_read_pattern)
-    x.L1_write_to("sim1.asdf")
-    x.L2_write_to("sim2-direct.asdf")
-
-    f = asdf.open("sim1.asdf")
-    print(f.info())
-    print("corners:")
-    print(f["romanisim"]["wcs"])
-    print(f["romanisim"]["wcs"]((0, 0, 4087, 4087), (0, 4087, 0, 4087)))
-    print(f["roman"]["meta"])
-    fits.PrimaryHDU(f["roman"]["data"]).writeto("L1.fits", overwrite=True)
-
-    with Image2D_from_L1("sim1.asdf", x.refdata, x.header) as ff:
-        ff.pseudocalibrate()
-        ff.L2_write_to("sim2.asdf")
-
-    f = asdf.open("sim2.asdf")
-    print(f.info())
-    print("corners:")
-    print(f["roman"]["meta"]["wcs"]((0, 0, 4087, 4087), (0, 4087, 0, 4087)))
-    fits.PrimaryHDU(f["roman"]["data"]).writeto("L2.fits", overwrite=True)
 
 
 def run_config(config):
@@ -980,8 +970,6 @@ def run_config(config):
                 image_out[:, :, : pars.nside] = f["roman"]["data"]
                 image_out[:, :, pars.nside :] = f["roman"]["amp33"]
                 fits.PrimaryHDU(image_out).writeto(config["OUT"][:-5] + "_asdf_to.fits", overwrite=True)
-
-    # simpletest()
 
 
 if __name__ == "__main__":
