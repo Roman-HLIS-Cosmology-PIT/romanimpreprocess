@@ -14,7 +14,6 @@ add_in_provenance
 
 import asdf
 import numpy as np
-import roman_datamodels
 
 
 def add_in_ref_data(rstruct, infile, rdq, pdq):
@@ -105,11 +104,7 @@ def add_in_provenance(rstruct, ftype):
     """
 
     if ftype.lower() == "gen_cal_image":
-        rstruct["meta"]["calibration_software_name"] = roman_datamodels.stnode.CalibrationSoftwareName(
-            "gen_cal_image / HLWAS PIT"
-        )
+        rstruct["meta"]["calibration_software_name"] = "gen_cal_image / HLWAS PIT"
         from ..version import __version__
 
-        rstruct["meta"]["calibration_software_version"] = roman_datamodels.stnode.CalibrationSoftwareVersion(
-            str(__version__)
-        )
+        rstruct["meta"]["calibration_software_version"] = str(__version__)
