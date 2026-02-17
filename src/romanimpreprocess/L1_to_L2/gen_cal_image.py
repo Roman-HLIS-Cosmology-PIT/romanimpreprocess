@@ -28,6 +28,7 @@ import asdf
 import galsim  # noqa: F401
 import numpy as np
 import yaml
+from astropy import units as u
 from astropy.io import fits
 from roman_datamodels.dqflags import pixel
 from romanisim import image as rimage
@@ -472,15 +473,19 @@ def calibrateimage(config, verbose=True):
         skyorder = -1  # not used
 
     im2, extras2 = rimage.make_asdf(
-        slope[nb:-nb, nb:-nb],
-        (slope_err_read[nb:-nb, nb:-nb]) ** 2,
-        (slope_err_poisson[nb:-nb, nb:-nb]) ** 2,
+        slope[nb:-nb, nb:-nb] * u.DN / u.s,
+        (slope_err_read[nb:-nb, nb:-nb] * u.DN / u.s) ** 2,
+        (slope_err_poisson[nb:-nb, nb:-nb] * u.DN / u.s) ** 2,
         metadata=l1meta,
         persistence=persistence,
         dq=pdq[nb:-nb, nb:-nb],
         imwcs=repackage_wcs(thewcs),
         gain=medgain,
     )
+    # strip unit from certain fields if not needed
+    for x in ["data", "var_poisson", "var_rnoise", "var_flat", "err"]:
+        if x in im2 and hasattr(im2[x], "value"):
+            im2[x] = im2[x].value
 
     oututils.add_in_ref_data(im2, config["IN"], rdq, pdq)
 
