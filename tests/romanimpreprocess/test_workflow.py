@@ -619,6 +619,23 @@ def test_run_all(tmp_path):
             if j == 2:
                 assert 0.14 < np.percentile(x, 95) - np.percentile(x, 5) < 0.40
 
+    # test truncation to float16 on a clipped layer
+    c3 = c2 | {"NOISE_PRECISION": 16}
+    c3["NOISE"]["OUT"] = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noise16.asdf"
+    gen_noise_image.generate_all_noise(c3)
+    p = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}"
+    with asdf.open(p + "_noise.asdf") as a_orig, asdf.open(p + "_noise16.asdf") as a16:
+        diff = (a16["noise"][0, :, :] - a_orig["noise"][0, :, :]) / (1.0 + np.abs(a_orig["noise"][0, :, :]))
+    assert np.all(np.abs(diff) < 0.005)
+
+    # this should raise an exception, we will check that
+    c3["NOISE_PRECISION"] = -1
+    try:
+        gen_noise_image.generate_all_noise(c3)
+        assert c3["NOISE_PRECISION"] == 0  # shouldn't get here
+    except ValueError as ve:
+        assert str(ve) == "Unsupported noise precision."
+
 
 def test_flip(tmp_path):
     """Test of flipping the SCA."""

@@ -174,7 +174,7 @@ def make_noise_cube(config, rng):
                 d = (np.shape(gain)[-1] - np.shape(f_orig["roman"]["data_withsky"])[-1]) // 2
                 if d > 0:
                     gain = gain[d:-d, d:-d]
-                gI = gain * f_orig["roman"]["data_withsky"].value
+                gI = gain * f_orig["roman"]["data_withsky"]
 
             # ramp-fitting weights
             ngrp = len(mytree["roman"]["meta"]["exposure"]["read_pattern"])
@@ -229,10 +229,10 @@ def make_noise_cube(config, rng):
             if "b" in noiseflags:
                 sky_order = int("0" + _get_subscript(noiseflags.upper(), "B"))
                 with asdf.open(config["OUT"]) as f_orig:
-                    skylevel = sky.medfit(f_orig["roman"]["data_withsky"].value, order=sky_order)[1]
+                    skylevel = sky.medfit(f_orig["roman"]["data_withsky"], order=sky_order)[1]
             else:
                 with asdf.open(config["OUT"]) as f_orig:
-                    skylevel = np.copy(f_orig["roman"]["data_withsky"].value)
+                    skylevel = np.copy(f_orig["roman"]["data_withsky"])
 
             # ramp-fitting weights
             ngrp = len(mytree["roman"]["meta"]["exposure"]["read_pattern"])
@@ -381,7 +381,8 @@ def generate_all_noise(config):
         af.write_to(f)
     if "FITSOUT" in config:
         if config["FITSOUT"]:
-            fitsout = fits.HDUList([fits.PrimaryHDU(noiseimage)])
+            fitsout = fits.HDUList([fits.PrimaryHDU(noiseimage.astype(np.float32))])
+            # FITS doesn't have float16 so we convert to float32
             fitsout.writeto(config["NOISE"]["OUT"][:-5] + "_asdf_to.fits", overwrite=True)
 
 

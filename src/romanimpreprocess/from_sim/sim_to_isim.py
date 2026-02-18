@@ -249,8 +249,8 @@ def make_l1_fullcal(counts, read_pattern, caldir, rng=None, persistence=None, ts
             rng=rng,
             seed=None,
             read_noise=f["roman"]["data"][nb:-nb, nb:-nb],
-            pedestal_extra_noise=None,
         )
+        # removed pedestal_extra_noise
 
     if "biascorr" in caldir:
         with asdf.open(caldir["biascorr"]) as f:

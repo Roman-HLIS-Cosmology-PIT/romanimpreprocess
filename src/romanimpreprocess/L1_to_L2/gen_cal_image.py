@@ -482,6 +482,10 @@ def calibrateimage(config, verbose=True):
         imwcs=repackage_wcs(thewcs),
         gain=medgain,
     )
+    # strip unit from certain fields if not needed
+    for x in ["data", "var_poisson", "var_rnoise", "var_flat", "err"]:
+        if x in im2 and hasattr(im2[x], "value"):
+            im2[x] = im2[x].value
 
     oututils.add_in_ref_data(im2, config["IN"], rdq, pdq)
 
@@ -526,7 +530,9 @@ def calibrateimage(config, verbose=True):
     # Write file
     with asdf.AsdfFile() as af2:
         af2.tree = {"roman": im2, "processinfo": processinfo}
-        af2.tree["roman"]["data_withsky"] = slope_withsky[nb:-nb, nb:-nb] * u.DN / u.s
+        af2.tree["roman"]["data_withsky"] = slope_withsky[nb:-nb, nb:-nb]
+        if hasattr(af2.tree["roman"]["data_withsky"], "value"):
+            af2.tree["roman"]["data_withsky"] = af2.tree["roman"]["data_withsky"].value
         if "cal_step" in af2.tree["roman"]["meta"]:
             print(af2.tree["roman"]["meta"]["cal_step"])
         else:
