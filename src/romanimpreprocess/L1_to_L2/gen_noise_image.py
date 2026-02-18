@@ -174,7 +174,7 @@ def make_noise_cube(config, rng):
                 d = (np.shape(gain)[-1] - np.shape(f_orig["roman"]["data_withsky"])[-1]) // 2
                 if d > 0:
                     gain = gain[d:-d, d:-d]
-                gI = gain * f_orig["roman"]["data_withsky"].value
+                gI = gain * f_orig["roman"]["data_withsky"]
 
             # ramp-fitting weights
             ngrp = len(mytree["roman"]["meta"]["exposure"]["read_pattern"])
