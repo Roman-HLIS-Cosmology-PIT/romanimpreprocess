@@ -531,6 +531,8 @@ def calibrateimage(config, verbose=True):
     with asdf.AsdfFile() as af2:
         af2.tree = {"roman": im2, "processinfo": processinfo}
         af2.tree["roman"]["data_withsky"] = slope_withsky[nb:-nb, nb:-nb]
+        if hasattr(af2.tree["roman"]["data_withsky"], "value"):
+            af2.tree["roman"]["data_withsky"] = af2.tree["roman"]["data_withsky"].value
         if "cal_step" in af2.tree["roman"]["meta"]:
             print(af2.tree["roman"]["meta"]["cal_step"])
         else:
