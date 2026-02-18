@@ -381,7 +381,8 @@ def generate_all_noise(config):
         af.write_to(f)
     if "FITSOUT" in config:
         if config["FITSOUT"]:
-            fitsout = fits.HDUList([fits.PrimaryHDU(noiseimage)])
+            fitsout = fits.HDUList([fits.PrimaryHDU(noiseimage.astype(np.float32))])
+            # FITS doesn't have float16 so we convert to float32
             fitsout.writeto(config["NOISE"]["OUT"][:-5] + "_asdf_to.fits", overwrite=True)
 
 
