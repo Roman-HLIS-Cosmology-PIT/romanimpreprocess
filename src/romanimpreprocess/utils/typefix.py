@@ -34,9 +34,11 @@ def fix(tree):
     if "wfi_parallel" not in tree["roman"]["meta"]["observation"]:
         tree["roman"]["meta"]["observation"]["wfi_parallel"] = False
 
-    # Fixing error for dark decay validation flag with using roman datamodels with new utilities
-    if "darkdecaysignal" not in tree["roman"]["meta"]["ref_file"]:
-        tree["roman"]["meta"]["ref_file"]["darkdecaysignal"] = "?"
+    # Fixing error for darkdecay, inverse linearity, and integral nonlinearity validation flag with using roman datamodels with new utilities
+    data_names = ["darkdecaysignal", "inverselinearity", "integralnonlinearity"]
+    for nameid in data_names:
+        if nameid not in tree["roman"]["meta"]["ref_file"]:
+            tree["roman"]["meta"]["ref_file"][nameid] = "?"
 
     # Which fields to check in "roman"
     changetypes = {"err": "float16", "var_poisson": "float16", "var_rnoise": "float16", "var_flat": "float16"}
