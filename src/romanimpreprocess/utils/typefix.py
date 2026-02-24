@@ -30,9 +30,9 @@ def fix(tree):
     if "dummyfields" in tree["roman"]["meta"]:
         print("added dummy fields:", tree["roman"]["meta"]["dummyfields"])
 
-    # Fixing error that occurs with wfi parallel flag when using new roman datamodels with new utilities 
-    if "wfi_parallel" not in tree["roman"]["meta"]:
-        tree["roman"]["meta"]["wfi_parallel"] = False
+    # Fixing error that occurs with wfi parallel flag when using new roman datamodels with new utilities
+    if "wfi_parallel" not in tree["roman"]["meta"]["observation"]:
+        tree["roman"]["meta"]["observation"]["wfi_parallel"] = False
 
     # Which fields to check in "roman"
     changetypes = {"err": "float16", "var_poisson": "float16", "var_rnoise": "float16", "var_flat": "float16"}
