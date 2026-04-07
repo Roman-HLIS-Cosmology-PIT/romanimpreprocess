@@ -30,6 +30,17 @@ def fix(tree):
     if "dummyfields" in tree["roman"]["meta"]:
         print("added dummy fields:", tree["roman"]["meta"]["dummyfields"])
 
+    # Fixing error that occurs with wfi parallel flag when using new roman datamodels with new utilities
+    if "wfi_parallel" not in tree["roman"]["meta"]["observation"]:
+        tree["roman"]["meta"]["observation"]["wfi_parallel"] = False
+
+    # Fixing error for darkdecay, inverse linearity, and integral nonlinearity validation flag with using
+    # roman_datamodels with new utilities
+    data_names = ["darkdecaysignal", "inverselinearity", "integralnonlinearity"]
+    for nameid in data_names:
+        if nameid not in tree["roman"]["meta"]["ref_file"]:
+            tree["roman"]["meta"]["ref_file"][nameid] = "?"
+
     # Which fields to check in "roman"
     changetypes = {"err": "float16", "var_poisson": "float16", "var_rnoise": "float16", "var_flat": "float16"}
 
