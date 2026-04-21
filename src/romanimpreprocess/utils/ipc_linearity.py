@@ -14,8 +14,10 @@ ipc_rev
     Inverse IPC operation, to the given order.
 correct_cube
     IPC corrects a full data cube (data) in place.
-_lin
+_lin_legendre
     Helper function to evaluate Legendre-based function.
+_lin_monomial
+    Helper function to evaluate monomial-based function.
 linearity
     Performs a linearity correction.
 multilin
@@ -171,7 +173,7 @@ def correct_cube(data, ipc_file, mylog, gain_file=None):
         kernel = F["roman"]["data"]
         if mylog is not None:
             mylog.append(
-                f"IPC kernel center range --> {np.amin(kernel[1,1,:,:]):f},{np.amax(kernel[1,1,:,:]):f}\n"
+                f"IPC kernel ctr range -> {np.amin(kernel[1, 1, :, :]):f},{np.amax(kernel[1, 1, :, :]):f}\n"
             )
         (ngrp, ny, nx) = np.shape(data)
         nb = (8192 + (nx - np.shape(kernel)[-1]) // 2) % 16
@@ -188,7 +190,8 @@ def correct_cube(data, ipc_file, mylog, gain_file=None):
 
 ## LINEARITY UTILITIES ##
 
-def _monomial_lin(z, coefs):
+
+def _lin_monomial(z, coefs):
     """
     Helper function to evaluate monomial-based function.
 
@@ -205,15 +208,10 @@ def _monomial_lin(z, coefs):
         The linearized signal, `` sum_l coefs_l z**l``, shape (ny,nx)
 
     """
-
-    phi = np.zeros_like(z)
-    for L in range(np.shape(coefs)[0]):
-        phi += coefs[L, :, :] * z**L
-
-    return phi
+    return np.polynomial.polynomial.polyval(z, coefs, tensor=False)
 
 
-def _lin(z, coefs, linextrap=True):
+def _lin_legendre(z, coefs, linextrap=True):
     """
     Helper function to evaluate Legendre-based function.
 
@@ -243,7 +241,9 @@ def _lin(z, coefs, linextrap=True):
     for L in range(1, np.shape(coefs)[0]):
         if linextrap:
             phi += coefs[L, :, :] * np.where(
-                exflag, np.sign(z) ** L * (1 + L * (L + 1) / 2.0 * (np.abs(z) - 1)), poly
+                exflag,
+                np.sign(z) ** L * (1 + L * (L + 1) / 2.0 * (np.abs(z) - 1)),
+                poly,
             )
         else:
             phi += coefs[L, :, :] * poly
@@ -255,7 +255,7 @@ def _lin(z, coefs, linextrap=True):
     return phi, exflag
 
 
-def linearity(S, linearity_file, origin=(0, 0)):
+def linearity(S, linearity_file, origin=(0, 0), lin_fmt="legendre"):
     """
     Performs a linearity correction.
 
@@ -266,7 +266,9 @@ def linearity(S, linearity_file, origin=(0, 0)):
     linearity_file : str
         ASDF file with linearity data.
     origin : (int, int), optional
-        The (x,y) position of the lower-left corner of S in the convention of the file.
+        The (x,y) position of the lower-left corner of S in the convention of the file. Default is (0,0).
+    lin_fmt : str, optional
+        The format of the linearity correction. Default is "legendre", other option is "monomial".
 
     Returns
     -------
@@ -291,13 +293,31 @@ def linearity(S, linearity_file, origin=(0, 0)):
     with asdf.open(linearity_file) as F:
         Smin = F["roman"]["Smin"][ymin:ymax, xmin:xmax]
         Smax = F["roman"]["Smax"][ymin:ymax, xmin:xmax]
-        phi, exflag = _lin(-1 + 2 * (S - Smin) / (Smax - Smin), F["roman"]["data"][:, ymin:ymax, xmin:xmax])
+        if lin_fmt == "legendre":
+            phi, exflag = _lin_legendre(
+                -1 + 2 * (S - Smin) / (Smax - Smin),
+                F["roman"]["data"][:, ymin:ymax, xmin:xmax],
+            )
+        elif lin_fmt == "monomial":
+            phi, exflag = _lin_monomial(
+                -1 + 2 * (S - Smin) / (Smax - Smin),
+                F["roman"]["data"][:, ymin:ymax, xmin:xmax],
+            )
+        else:  # pragma: no cover
+            raise ValueError(f"lin_fmt {lin_fmt} not recognized, please choose 'legendre' or 'monomial'")
         dq = np.copy(F["roman"]["dq"][ymin:ymax, xmin:xmax])
     dq |= np.where(exflag, pixel.NO_LIN_CORR, 0).astype(np.uint32)  # flag with bad linearity correction
     return phi, dq
 
 
-def multilin(S, linearity_file, origin=(0, 0), do_not_flag_first=True, attempt_corr=None):
+def multilin(
+    S,
+    linearity_file,
+    origin=(0, 0),
+    do_not_flag_first=True,
+    attempt_corr=None,
+    lin_fmt="legendre",
+):
     """
     Performs a linearity correction, but with multiple groups.
 
@@ -316,6 +336,8 @@ def multilin(S, linearity_file, origin=(0, 0), do_not_flag_first=True, attempt_c
         If provided, an array of the same shape as `S` that is True if we want to try the correction
         and False otherwise (the idea is that we want to be able to *not* flag a pixel that is saturated).
         Default is to attempt to correct everything.
+    lin_fmt : str, optional
+        The format of the linearity correction. Default is "legendre", other option is "monomial".
 
     Returns
     -------
@@ -354,9 +376,16 @@ def multilin(S, linearity_file, origin=(0, 0), do_not_flag_first=True, attempt_c
             z = -1 + 2 * (S[j, :, :] - Smin) / (Smax - Smin)
             if j == 0 and do_not_flag_first:
                 z = np.clip(z, -1, 1)
-            phi[j, :, :], exflag = _lin(z, F["roman"]["data"][:, ymin:ymax, xmin:xmax])
+            if lin_fmt == "legendre":
+                phi[j, :, :], exflag = _lin_legendre(z, F["roman"]["data"][:, ymin:ymax, xmin:xmax])
+            elif lin_fmt == "monomial":
+                phi[j, :, :], exflag = _lin_monomial(z, F["roman"]["data"][:, ymin:ymax, xmin:xmax])
+            else:  # pragma: no cover
+                raise ValueError(f"lin_fmt {lin_fmt} not recognized, please choose 'legendre' or 'monomial'")
             phi[j, :, :] = np.where(
-                dq & (pixel.NO_LIN_CORR | pixel.REFERENCE_PIXEL) == 0, phi[j, :, :], S[j, :, :] - Sref
+                dq & (pixel.NO_LIN_CORR | pixel.REFERENCE_PIXEL) == 0,
+                phi[j, :, :],
+                S[j, :, :] - Sref,
             )
 
             # flag reads with bad linearity correction
@@ -368,7 +397,7 @@ def multilin(S, linearity_file, origin=(0, 0), do_not_flag_first=True, attempt_c
     return phi, dq
 
 
-def invlinearity(Slin, linearity_file, origin=(0, 0)):
+def invlinearity(Slin, linearity_file, origin=(0, 0), lin_fmt="legendre"):
     """
     Calculates the inverse linearity. (This is most likely to be used in simulations.)
 
@@ -380,6 +409,9 @@ def invlinearity(Slin, linearity_file, origin=(0, 0)):
         ASDF calibration reference file with linearity data.
     origin : (int, int), optional
         The (x,y) position of the lower-left corner of `S` in the convention of the calibration file.
+        Default is (0,0).
+    lin_fmt : str, optional
+        The format of the linearity correction. Default is "legendre", other option is "monomial".
 
     Returns
     -------
@@ -406,8 +438,13 @@ def invlinearity(Slin, linearity_file, origin=(0, 0)):
         # binary search, robust over the range -1 < z < +1
         # (which should encapsulate anything; also automatically saturates)
         for j in range(1, 25):
-            phi, exflag = _lin(z, F["roman"]["data"][:, ymin:ymax, xmin:xmax], linextrap=False)
-            # linextrap=False saves some time
+            if lin_fmt == "legendre":
+                phi, exflag = _lin_legendre(z, F["roman"]["data"][:, ymin:ymax, xmin:xmax], linextrap=False)
+                # linextrap=False saves some time
+            elif lin_fmt == "monomial":
+                phi, exflag = _lin_monomial(z, F["roman"]["data"][:, ymin:ymax, xmin:xmax])
+            else:  # pragma: no cover
+                raise ValueError(f"lin_fmt {lin_fmt} not recognized, please choose 'legendre' or 'monomial'")
             z += np.where(phi < Slin, 1 / 2**j, -1 / 2**j)
         Smin = F["roman"]["Smin"][ymin:ymax, xmin:xmax]
         Smax = F["roman"]["Smax"][ymin:ymax, xmin:xmax]
@@ -437,7 +474,9 @@ class IL:
         If None, skips the IPC.
     start_e : np.array or float, optional
         If provided, starts with some number of electrons (start_e, number or array) in the well.
-        Useful for reset noise.
+        Useful for reset noise. Default is 0.
+    lin_fmt : str, optional
+        The format of the linearity correction. Default is "legendre", other option is "monomial".
 
     Methods
     -------
@@ -450,11 +489,12 @@ class IL:
 
     """
 
-    def __init__(self, linearity_file, gain_file, ipc_file, start_e=0.0):
+    def __init__(self, linearity_file, gain_file, ipc_file, start_e=0.0, lin_fmt="legendre"):
         self.linearity_file = linearity_file
         self.gain_file = gain_file
         self.ipc_file = ipc_file
         self.start_e = start_e
+        self.lin_fmt = lin_fmt
         # need the .dq attribute
         with asdf.open(self.linearity_file) as f:
             self._dq = np.copy(f["roman"]["dq"])
@@ -527,7 +567,12 @@ class IL:
 
         # what to strip off the counts array
         nb = (8192 - nyc // 2) % 16
-        S, _ = invlinearity(counts_conv / g_in, self.linearity_file, origin=(nb, nb))
+        S, _ = invlinearity(
+            counts_conv / g_in,
+            self.linearity_file,
+            origin=(nb, nb),
+            lin_fmt=self.lin_fmt,
+        )
 
         if not electrons_out:
             return S
