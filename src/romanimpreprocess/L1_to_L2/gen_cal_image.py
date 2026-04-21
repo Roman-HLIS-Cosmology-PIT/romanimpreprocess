@@ -357,7 +357,7 @@ def calibrateimage(config, verbose=True):
     # in some simulations we may need to give this if the input stars themselves are simulated
     thewcs = wcs_from_config(config)
     caldir = config["CALDIR"]
-    backup = config["SATURATION_BACKUP"] if "SATURATION_BACKUP" in config else 1
+    backup = config.get("SATURATION_BACKUP", 1)
 
     # initialize a data cube and data quality
     data, rdq, pdq, meta, l1meta, amp33 = initializationstep(config, caldir, mylog)
