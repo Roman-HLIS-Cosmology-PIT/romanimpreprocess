@@ -84,6 +84,8 @@ The configuration is a Python dictionary (normally read from a YAML file).
 
 - ``NOISE_PRECISION``: The precision to store noise fields, as number of bits in IEEE 754 floating point convention. Options are 16 and 32 (default = 32).
 
+- ``SATURATION_BACKUP``: The number of frames to "back up" when checking for saturation. This will probably be 0 (SOC) or 1 (PIT) though any int is valid. The frame backup parameter defaults to 1 in the saturation check if not included here.
+
 A sample file would be::
 
     ---
