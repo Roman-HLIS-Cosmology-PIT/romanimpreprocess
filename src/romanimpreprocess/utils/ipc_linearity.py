@@ -188,6 +188,30 @@ def correct_cube(data, ipc_file, mylog, gain_file=None):
 
 ## LINEARITY UTILITIES ##
 
+def _monomial_lin(z, coefs):
+    """
+    Helper function to evaluate monomial-based function.
+
+    Parameters
+    ----------
+    z : np.array
+        Rescaled signal (modified DN), shape (ny,nx).
+    coefs : np.array
+        Monomial coefficients, shape (p_order+1,ny,nx).
+
+    Returns
+    -------
+    phi : np.array
+        The linearized signal, `` sum_l coefs_l z**l``, shape (ny,nx)
+
+    """
+
+    phi = np.zeros_like(z)
+    for L in range(np.shape(coefs)[0]):
+        phi += coefs[L, :, :] * z**L
+
+    return phi
+
 
 def _lin(z, coefs, linextrap=True):
     """
