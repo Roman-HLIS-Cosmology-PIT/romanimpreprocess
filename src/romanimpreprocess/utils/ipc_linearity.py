@@ -208,7 +208,8 @@ def _lin_monomial(z, coefs):
         The linearized signal, `` sum_l coefs_l z**l``, shape (ny,nx)
 
     """
-    return np.polynomial.polynomial.polyval(z, coefs, tensor=False)
+    exflag = np.abs(z) > 1  # Keeping for consistency with _lin_legendre, but junk
+    return np.polynomial.polynomial.polyval(z, coefs, tensor=False), exflag
 
 
 def _lin_legendre(z, coefs, linextrap=True):
