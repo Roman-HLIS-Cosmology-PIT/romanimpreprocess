@@ -233,9 +233,10 @@ def saturation_check(data, read_pattern, rdq, pdq, caldir, mylog, backup):
     # backs up 1 frame to be safe since if the non-linearity curve is sharp enough
     # the existing algorithm can fail on a large group
     # important to run this in ascending order
-    for i in range(len(read_pattern) - backup):
-        if len(read_pattern[i]) > 1:
-            rdq[i, :, :] |= rdq[i + 1, :, :] & pixel.SATURATED
+    for _ in range(backup):
+        for i in range(len(read_pattern) - 1):
+            if len(read_pattern[i]) > 1:
+                rdq[i, :, :] |= rdq[i + 1, :, :] & pixel.SATURATED
 
 
 def subtract_dark_current(data, rdq, pdq, caldir, meta, mylog):
