@@ -1,7 +1,7 @@
 """Test for simple linearity function."""
 
 import numpy as np
-from romanimpreprocess.utils.ipc_linearity import _lin_legendre
+from romanimpreprocess.utils.ipc_linearity import _lin_legendre, _lin_monomial
 
 
 def test_lin_legendre():
@@ -54,7 +54,7 @@ def test_lin_monomial():
     z = np.linspace(-1.5, 1.5, 31).reshape((1, 31))
     coefs = np.zeros((4, 1, 31))
     coefs[3, :, :] = 1.0
-    phi, _ = _lin_legendre(z, coefs)
+    phi, _ = _lin_monomial(z, coefs)
     print(phi)
     phidiff = phi - z**3
     assert np.all(phidiff < 1.0e-6)
