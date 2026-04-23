@@ -6,7 +6,8 @@ readme = "README.rst"
 authors = [
     { name = "Christopher M. Hirata", email = "hirata.10@osu.edu" },
     { name = "Katherine Laliotis", email = "laliotis.2@osu.edu" },
-    { name = "Michael Gabe", email = "gabe.7@osu.edu" }
+    { name = "Michael Gabe", email = "gabe.7@osu.edu" },
+    { name = "Eddie Schlafly", email = "eschlafly@stsci.edu" }
 ]
 maintainers = [
     { name = "Roman High Latitude Imaging Survey Cosmology Project Infrastructure Team" }

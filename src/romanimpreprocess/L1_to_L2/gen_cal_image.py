@@ -175,7 +175,7 @@ def initializationstep(config, caldir, mylog):
     return data, rdq, pdq, meta, l1meta, amp33
 
 
-def saturation_check(data, read_pattern, rdq, pdq, caldir, mylog):
+def saturation_check(data, read_pattern, rdq, pdq, caldir, mylog, backup):
     """
     Flags saturated pixels (in both 3D and 2D arrays).
 
@@ -198,6 +198,10 @@ def saturation_check(data, read_pattern, rdq, pdq, caldir, mylog):
         Locations of calibration files.
     mylog : romanimpreprocess.utils.processlog.ProcessLog
         Processing log.
+    backup : int
+        Number of frames to "back up" when checking saturation.
+        This is read from config["SATURATION_BACKUP"]. It defaults to 1
+        if the keyword is not included in the config.
 
     Returns
     -------
@@ -229,9 +233,10 @@ def saturation_check(data, read_pattern, rdq, pdq, caldir, mylog):
     # backs up 1 frame to be safe since if the non-linearity curve is sharp enough
     # the existing algorithm can fail on a large group
     # important to run this in ascending order
-    for i in range(len(read_pattern) - 1):
-        if len(read_pattern[i]) > 1:
-            rdq[i, :, :] |= rdq[i + 1, :, :] & pixel.SATURATED
+    for _ in range(backup):
+        for i in range(len(read_pattern) - 1):
+            if len(read_pattern[i]) > 1:
+                rdq[i, :, :] |= rdq[i + 1, :, :] & pixel.SATURATED
 
 
 def subtract_dark_current(data, rdq, pdq, caldir, meta, mylog):
@@ -353,6 +358,7 @@ def calibrateimage(config, verbose=True):
     # in some simulations we may need to give this if the input stars themselves are simulated
     thewcs = wcs_from_config(config)
     caldir = config["CALDIR"]
+    backup = config.get("SATURATION_BACKUP", 1)
 
     # initialize a data cube and data quality
     data, rdq, pdq, meta, l1meta, amp33 = initializationstep(config, caldir, mylog)
@@ -361,7 +367,7 @@ def calibrateimage(config, verbose=True):
     mylog.append("Initialized data\n")
 
     # saturation check
-    saturation_check(data, meta["read_pattern"], rdq, pdq, caldir, mylog)
+    saturation_check(data, meta["read_pattern"], rdq, pdq, caldir, mylog, backup)
     mylog.append("Saturation check complete\n")
 
     # reference pixel correction -- right now using a 5-pixel filter of the left & right ref pixels
