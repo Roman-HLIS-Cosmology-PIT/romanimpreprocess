@@ -426,6 +426,9 @@ def invlinearity(Slin, linearity_file, origin=(0, 0), lin_fmt="legendre"):
     This function works by bisection. It is the slowest step in the simulation -> Level 1 workflow,
     so we plan to implement a more advanced algorithm in the future.
 
+    If `lin_fmt` is ``"monomial"``, then the routine does not take an externally provided bounding box,
+    and the routine defaults to searching the range 0 .. 65535.
+
     """
 
     (dy, dx) = np.shape(Slin)
@@ -443,13 +446,16 @@ def invlinearity(Slin, linearity_file, origin=(0, 0), lin_fmt="legendre"):
                 phi, exflag = _lin_legendre(z, F["roman"]["data"][:, ymin:ymax, xmin:xmax], linextrap=False)
                 # linextrap=False saves some time
             elif lin_fmt == "monomial":
-                phi, exflag = _lin_monomial(z, F["roman"]["data"][:, ymin:ymax, xmin:xmax])
+                phi, exflag = _lin_monomial(32767.5 * (1 + z), F["roman"]["data"][:, ymin:ymax, xmin:xmax])
             else:  # pragma: no cover
                 raise ValueError(f"lin_fmt {lin_fmt} not recognized, please choose 'legendre' or 'monomial'")
             z += np.where(phi < Slin, 1 / 2**j, -1 / 2**j)
-        Smin = F["roman"]["Smin"][ymin:ymax, xmin:xmax]
-        Smax = F["roman"]["Smax"][ymin:ymax, xmin:xmax]
-        S = Smin + (Smax - Smin) / 2.0 * (1 + z)
+        if lin_fmt == "legendre":
+            Smin = F["roman"]["Smin"][ymin:ymax, xmin:xmax]
+            Smax = F["roman"]["Smax"][ymin:ymax, xmin:xmax]
+            S = Smin + (Smax - Smin) / 2.0 * (1 + z)
+        elif lin_fmt == "monomial":
+            S = 32767.5 * (1 + z)
 
     return S, exflag
 
