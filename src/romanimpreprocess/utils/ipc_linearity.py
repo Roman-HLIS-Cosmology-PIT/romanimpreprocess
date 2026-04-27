@@ -292,18 +292,15 @@ def linearity(S, linearity_file, origin=(0, 0), lin_fmt="legendre"):
     xmax = xmin + dx
 
     with asdf.open(linearity_file) as F:
-        Smin = F["roman"]["Smin"][ymin:ymax, xmin:xmax]
-        Smax = F["roman"]["Smax"][ymin:ymax, xmin:xmax]
         if lin_fmt == "legendre":
+            Smin = F["roman"]["Smin"][ymin:ymax, xmin:xmax]
+            Smax = F["roman"]["Smax"][ymin:ymax, xmin:xmax]
             phi, exflag = _lin_legendre(
                 -1 + 2 * (S - Smin) / (Smax - Smin),
                 F["roman"]["data"][:, ymin:ymax, xmin:xmax],
             )
         elif lin_fmt == "monomial":
-            phi, exflag = _lin_monomial(
-                -1 + 2 * (S - Smin) / (Smax - Smin),
-                F["roman"]["data"][:, ymin:ymax, xmin:xmax],
-            )
+            phi, exflag = _lin_monomial(S, F["roman"]["data"][:, ymin:ymax, xmin:xmax])
         else:  # pragma: no cover
             raise ValueError(f"lin_fmt {lin_fmt} not recognized, please choose 'legendre' or 'monomial'")
         dq = np.copy(F["roman"]["dq"][ymin:ymax, xmin:xmax])
@@ -369,18 +366,21 @@ def multilin(
 
     phi = np.zeros(np.shape(S), dtype=np.float32)
     with asdf.open(linearity_file) as F:
-        Smin = F["roman"]["Smin"][ymin:ymax, xmin:xmax]
-        Smax = F["roman"]["Smax"][ymin:ymax, xmin:xmax]
-        Sref = F["roman"]["Sref"][ymin:ymax, xmin:xmax]
+        if lin_fmt == "legendre":
+            Smin = F["roman"]["Smin"][ymin:ymax, xmin:xmax]
+            Smax = F["roman"]["Smax"][ymin:ymax, xmin:xmax]
+            Sref = F["roman"]["Sref"][ymin:ymax, xmin:xmax]
+        else:
+            Sref = 0
         dq = np.copy(F["roman"]["dq"][ymin:ymax, xmin:xmax])
         for j in range(ngrp):
-            z = -1 + 2 * (S[j, :, :] - Smin) / (Smax - Smin)
-            if j == 0 and do_not_flag_first:
-                z = np.clip(z, -1, 1)
             if lin_fmt == "legendre":
+                z = -1 + 2 * (S[j, :, :] - Smin) / (Smax - Smin)
+                if j == 0 and do_not_flag_first:
+                    z = np.clip(z, -1, 1)
                 phi[j, :, :], exflag = _lin_legendre(z, F["roman"]["data"][:, ymin:ymax, xmin:xmax])
             elif lin_fmt == "monomial":
-                phi[j, :, :], exflag = _lin_monomial(z, F["roman"]["data"][:, ymin:ymax, xmin:xmax])
+                phi[j, :, :], exflag = _lin_monomial(S[j, :, :], F["roman"]["data"][:, ymin:ymax, xmin:xmax])
             else:  # pragma: no cover
                 raise ValueError(f"lin_fmt {lin_fmt} not recognized, please choose 'legendre' or 'monomial'")
             phi[j, :, :] = np.where(
