@@ -30,7 +30,11 @@ import numpy as np
 import yaml
 from astropy import units as u
 from astropy.io import fits
-from roman_datamodels.dqflags import pixel
+from roman_datamodels import datamodels
+from roman_datamodels.dqflags import pixel, group
+from romancal.dq_init import dq_initialization
+from romancal.saturation import saturation
+from romancal.datamodels.fileio import open_dataset
 from romanisim import image as rimage
 from romanisim import persistence as rip
 from romanisim import wcs as riwcs
@@ -83,7 +87,7 @@ def wcs_from_config(config):
     return None
 
 
-def initializationstep(config, caldir, mylog):
+def initializationstep(config, caldir, mylog, exclude_first=False):
     """
     Initialization step.
 
@@ -95,87 +99,54 @@ def initializationstep(config, caldir, mylog):
         Locations of calibration files.
     mylog : romanimpreprocess.utils.processlog.ProcessLog
         Processing log.
+    exclude_first : bool
+        if True, mark first resultant as DO_NOT_USE
 
     Returns
     -------
-    data : np.array
-        3D array, science cube loaded from L1
-    rdq : np.array
-        3D array, flags (ramp data quality)
-    pdq : np.array
-        2D array, flags (pixel data quality)
-    meta : dict
+    ramp_model : RampModel
+        ramp data model including data, groupdq, pixeldq, metadata
+    meta: dict
         Other metadata (right now: frame_time and read_pattern)
-    l1meta : dict
-        Metadata stright from the L1 file (copy of ASDF subtree)
-    amp33 : np.array
-        3D array, reference output loaded from L1
-
     """
 
-    with asdf.open(config["IN"]) as f:
-        data = np.copy(f["roman"]["data"].astype(np.float32))
-        amp33 = np.copy(f["roman"]["amp33"].astype(np.float32))
-        rdq = np.zeros(np.shape(data), dtype=np.uint32)
-
-        # guide windows
-        # in DCL testing the rows containing the guide windows were affected
-        # we expect also that the pixels with IPC coupling to the guide window
-        # are affected at some level so I'm flagging those too.
-        guide_star = f["roman"]["meta"]["guide_star"]
-        xstart = int(guide_star["window_xstart"])
-        xstop = int(guide_star["window_xstop"])
-        ystart = int(guide_star["window_ystart"])
-        ystop = int(guide_star["window_ystop"])
-        mylog.append(f"guide window: x={xstart:d}:{xstop:d}, y={ystart:d}:{ystop:d}\n")
-        # if the metadata contain a real window, mask that row
-        if xstart >= 0 and ystart >= 0 and xstop <= pars.nside and ystop <= pars.nside:
-            rdq[:, :, xstart:xstop] |= pixel.GW_AFFECTED_DATA
-            # now flag potential IPC
-            if xstart > pars.nborder:
-                xstart -= 1
-            if xstop < pars.nside - pars.nborder:
-                xstop += 1
-            if ystart > pars.nborder:
-                ystart -= 1
-            if ystop < pars.nside - pars.nborder:
-                ystop += 1
-            rdq[:, ystart:ystop, xstart:xstop] |= pixel.GW_AFFECTED_DATA
-
-        # pull out metadata that we want later
-        meta = {
-            "frame_time": f["roman"]["meta"]["exposure"]["frame_time"],
-            "read_pattern": f["roman"]["meta"]["exposure"]["read_pattern"],
-        }
-
-        # more information
-        meta["ngrp"] = len(meta["read_pattern"])
-        meta["tbar"] = np.zeros(meta["ngrp"], dtype=np.float32)
-        meta["tau"] = np.zeros(meta["ngrp"], dtype=np.float32)
-        meta["N"] = np.zeros(meta["ngrp"], dtype=np.int16)
-        for i in range(meta["ngrp"]):
-            # N_i, tbar_i, and tau_i as defined in Casertano et al. 2022
-            meta["N"][i] = len(meta["read_pattern"][i])
-            t0 = meta["read_pattern"][i][0]
-            meta["tbar"][i] = (t0 + (meta["N"][i] - 1) / 2.0) * meta["frame_time"]
-            meta["tau"][i] = (t0 + (meta["N"][i] - 1) * (2 * meta["N"][i] - 1) / (6.0 * meta["N"][i])) * meta[
-                "frame_time"
-            ]
-
-        l1meta = deepcopy(f["roman"]["meta"])
-
-    # mask
     if "mask" in caldir:
-        with asdf.open(caldir["mask"]) as m:
-            rdq |= m["roman"]["dq"][None, :, :]
+        maskfile = asdf.open(caldir['mask'])
+        mask = typefix.dict_to_attribute(maskfile['roman'])
+    else:
+        mask = None
 
-    # pixel dq
-    pdq = np.bitwise_or.reduce(rdq, axis=0)
+    with open_dataset(config["IN"], update_version=True) as l1model:
+        ramp_model = dq_initialization.do_dqinit(l1model, mask, expand_gw_flagging=1)
 
-    return data, rdq, pdq, meta, l1meta, amp33
+    maskfile.close()
+
+    meta = {
+        "frame_time": ramp_model.meta.exposure.frame_time,
+        "read_pattern": [list(x) for x in list(ramp_model.meta.exposure.read_pattern)],
+    }
+
+    # more information
+    meta["ngrp"] = len(meta["read_pattern"])
+    meta["tbar"] = np.zeros(meta["ngrp"], dtype=np.float32)
+    meta["tau"] = np.zeros(meta["ngrp"], dtype=np.float32)
+    meta["N"] = np.zeros(meta["ngrp"], dtype=np.int16)
+    for i in range(meta["ngrp"]):
+        # N_i, tbar_i, and tau_i as defined in Casertano et al. 2022
+        meta["N"][i] = len(meta["read_pattern"][i])
+        t0 = meta["read_pattern"][i][0]
+        meta["tbar"][i] = (t0 + (meta["N"][i] - 1) / 2.0) * meta["frame_time"]
+        meta["tau"][i] = (t0 + (meta["N"][i] - 1) * (2 * meta["N"][i] - 1) / (6.0 * meta["N"][i])) * meta[
+            "frame_time"
+        ]
+
+    if exclude_first:
+        ramp_model['groupdq'][0, ...] |= group.DO_NOT_USE
+
+    return ramp_model, meta
 
 
-def saturation_check(data, read_pattern, rdq, pdq, caldir, mylog, backup):
+def saturation_check(ramp_model, caldir, mylog, backup=1, skip_firstn=1):
     """
     Flags saturated pixels (in both 3D and 2D arrays).
 
@@ -186,14 +157,8 @@ def saturation_check(data, read_pattern, rdq, pdq, caldir, mylog, backup):
 
     Parameters
     ----------
-    data : np.array
-        3D raw data cube (uint16, shape ngroup,4096,4096).
-    read_pattern : list of list of int
-        MultiAccum table.
-    rdq : np.array
-        3D ramp data quality (uint32, shape ngroup,4096,4096).
-    pdq : np.array
-        2D pixel data quality (uint32, shape 4096,4096).
+    ramp_model : roman_datamodels.datamodels.RampModel
+        data model including resultant cube
     caldir : dict
         Locations of calibration files.
     mylog : romanimpreprocess.utils.processlog.ProcessLog
@@ -209,34 +174,21 @@ def saturation_check(data, read_pattern, rdq, pdq, caldir, mylog, backup):
 
     """
 
-    # passing the 0th frame will lead to division by zero, so we avoid this
-    # start the saturation check with the s th frame
-    s = 0
-    if read_pattern[0] == [0]:
-        s = 1
-
-    with asdf.open(caldir["saturation"]) as f:
-        flag_saturated_pixels(
-            data[None, s:, :, :],  # flag_saturated_pixels expects a 4D array with integrations as the 0-axis
-            rdq[None, s:, :, :],  # ramp data quality, with only 1 integration, expanded to 4D
-            pdq,  # 2D pixel, passed through
-            f["roman"]["data"],  # saturation threshold, 2D
-            np.copy(f["roman"]["dq"]),  # saturation quality flags
-            2**16 - 1,  # maximum of ADC output -- 16 bits
-            pixel,  # this is the Roman data quality flag array
-            n_pix_grow_sat=1,  # also flag 1 pixel around each saturated one
-            zframe=None,
-            read_pattern=read_pattern[s:],  # again, this is a list of list of ints
-            bias=None,
-        )
-
-    # backs up 1 frame to be safe since if the non-linearity curve is sharp enough
-    # the existing algorithm can fail on a large group
-    # important to run this in ascending order
-    for _ in range(backup):
-        for i in range(len(read_pattern) - 1):
-            if len(read_pattern[i]) > 1:
-                rdq[i, :, :] |= rdq[i + 1, :, :] & pixel.SATURATED
+    with asdf.open(caldir["saturation"]) as satreffile:
+        satref = typefix.dict_to_attribute(satreffile['roman'])
+        if skip_firstn != 0:
+            old_data = ramp_model.data
+            old_dq = ramp_model.groupdq
+            old_read_pattern = ramp_model.meta.exposure.read_pattern
+            ramp_model.data = old_data[skip_firstn:, ...]
+            ramp_model.groupdq = old_dq[skip_firstn:, ...]
+            ramp_model.meta.exposure.read_pattern = (
+                ramp_model.meta.exposure.read_pattern[skip_firstn:])
+        saturation.flag_saturation(ramp_model, satref, n_pix_grow_sat=1, backup=backup)
+        if skip_firstn != 0:
+            ramp_model.data = old_data
+            ramp_model.groupdq = old_dq
+            ramp_model.meta.exposure.read_pattern = old_read_pattern
 
 
 def subtract_dark_current(data, rdq, pdq, caldir, meta, mylog):
@@ -361,14 +313,18 @@ def calibrateimage(config, verbose=True):
     backup = config.get("SATURATION_BACKUP", 1)
 
     # initialize a data cube and data quality
-    data, rdq, pdq, meta, l1meta, amp33 = initializationstep(config, caldir, mylog)
-    (ngrp, ny, nx) = np.shape(data)
+    ramp_model, meta = initializationstep(config, caldir, mylog)
+
     nb = meta["nborder"] = pars.nborder
     mylog.append("Initialized data\n")
 
     # saturation check
-    saturation_check(data, meta["read_pattern"], rdq, pdq, caldir, mylog, backup)
+    saturation_check(ramp_model, caldir, mylog, backup=backup)
     mylog.append("Saturation check complete\n")
+
+    data, rdq, pdq, l1meta, amp33 = (ramp_model['data'], ramp_model['groupdq'], ramp_model['pixeldq'],
+        ramp_model.meta, ramp_model['amp33'])
+    (ngrp, ny, nx) = np.shape(data)
 
     # reference pixel correction -- right now using a 5-pixel filter of the left & right ref pixels
     # and the top & bottom pixel subtraction functions from Laliotis et al. (2024)
