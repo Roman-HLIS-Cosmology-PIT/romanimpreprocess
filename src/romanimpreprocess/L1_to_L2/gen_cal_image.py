@@ -34,6 +34,7 @@ from roman_datamodels import datamodels
 from roman_datamodels.dqflags import pixel, group
 from romancal.dq_init import dq_initialization
 from romancal.saturation import saturation
+from romancal.datamodels.fileio import open_dataset
 from romanisim import image as rimage
 from romanisim import persistence as rip
 from romanisim import wcs as riwcs
@@ -115,14 +116,14 @@ def initializationstep(config, caldir, mylog, exclude_first=False):
     else:
         mask = None
 
-    with datamodels.open(config["IN"]) as l1model:
+    with open_dataset(config["IN"], update_version=True) as l1model:
         ramp_model = dq_initialization.do_dqinit(l1model, mask, expand_gw_flagging=1)
 
     maskfile.close()
 
     meta = {
         "frame_time": ramp_model.meta.exposure.frame_time,
-        "read_pattern": ramp_model.meta.exposure.read_pattern,
+        "read_pattern": [list(x) for x in list(ramp_model.meta.exposure.read_pattern)],
     }
 
     # more information
@@ -145,7 +146,7 @@ def initializationstep(config, caldir, mylog, exclude_first=False):
     return ramp_model, meta
 
 
-def saturation_check(ramp_model, caldir, mylog, backup=1):
+def saturation_check(ramp_model, caldir, mylog, backup=1, skip_firstn=1):
     """
     Flags saturated pixels (in both 3D and 2D arrays).
 
@@ -173,12 +174,21 @@ def saturation_check(ramp_model, caldir, mylog, backup=1):
 
     """
 
-    # passing the 0th frame will lead to division by zero, so we avoid this
-    # start the saturation check with the s th frame
-
     with asdf.open(caldir["saturation"]) as satreffile:
         satref = typefix.dict_to_attribute(satreffile['roman'])
+        if skip_firstn != 0:
+            old_data = ramp_model.data
+            old_dq = ramp_model.groupdq
+            old_read_pattern = ramp_model.meta.exposure.read_pattern
+            ramp_model.data = old_data[skip_firstn:, ...]
+            ramp_model.groupdq = old_dq[skip_firstn:, ...]
+            ramp_model.meta.exposure.read_pattern = (
+                ramp_model.meta.exposure.read_pattern[skip_firstn:])
         saturation.flag_saturation(ramp_model, satref, n_pix_grow_sat=1, backup=backup)
+        if skip_firstn != 0:
+            ramp_model.data = old_data
+            ramp_model.groupdq = old_dq
+            ramp_model.meta.exposure.read_pattern = old_read_pattern
 
 
 def subtract_dark_current(data, rdq, pdq, caldir, meta, mylog):

@@ -41,8 +41,8 @@ def fix(tree):
     if "wfi_parallel" not in tree["roman"]["meta"]["observation"]:
         tree["roman"]["meta"]["observation"]["wfi_parallel"] = False
 
-    if "hga_move" not in tree["roman"]["meta"]["exposure"]:
-        tree["roman"]["meta"]["exposure"]["hga_move"] = False
+    tree["roman"]["meta"]["exposure"]["read_pattern"] = list(
+        tree["roman"]["meta"]["exposure"]["read_pattern"])
 
     # Fixing error for darkdecay, inverse linearity, and integral nonlinearity validation flag with using
     # roman_datamodels with new utilities
