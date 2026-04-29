@@ -2,6 +2,13 @@
 
 import asdf
 import numpy as np
+import types
+
+
+def dict_to_attribute(d):
+    if isinstance(d, dict):
+        return types.SimpleNamespace(**{k: dict_to_attribute(v) for k, v in d.items()})
+    return d
 
 
 def fix(tree):
@@ -33,6 +40,9 @@ def fix(tree):
     # Fixing error that occurs with wfi parallel flag when using new roman datamodels with new utilities
     if "wfi_parallel" not in tree["roman"]["meta"]["observation"]:
         tree["roman"]["meta"]["observation"]["wfi_parallel"] = False
+
+    if "hga_move" not in tree["roman"]["meta"]["exposure"]:
+        tree["roman"]["meta"]["exposure"]["hga_move"] = False
 
     # Fixing error for darkdecay, inverse linearity, and integral nonlinearity validation flag with using
     # roman_datamodels with new utilities
