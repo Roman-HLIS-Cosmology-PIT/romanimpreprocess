@@ -107,8 +107,8 @@ def initializationstep(config, caldir, mylog, exclude_first=False):
     """
 
     if "mask" in caldir:
-        maskfile = asdf.open(caldir['mask'])
-        mask = datamodels.MaskRefModel.create_from_model(maskfile['roman'])
+        maskfile = asdf.open(caldir["mask"])
+        mask = datamodels.MaskRefModel.create_from_model(maskfile["roman"])
     else:
         mask = None
 
@@ -119,7 +119,7 @@ def initializationstep(config, caldir, mylog, exclude_first=False):
 
     meta = {
         "frame_time": ramp_model.meta.exposure.frame_time,
-        "read_pattern": ramp_model.meta.exposure['read_pattern'],
+        "read_pattern": ramp_model.meta.exposure["read_pattern"],
     }
 
     # more information
@@ -137,7 +137,7 @@ def initializationstep(config, caldir, mylog, exclude_first=False):
         ]
 
     if exclude_first:
-        ramp_model['groupdq'][0, ...] |= group.DO_NOT_USE
+        ramp_model["groupdq"][0, ...] |= group.DO_NOT_USE
 
     return ramp_model, meta
 
@@ -173,15 +173,14 @@ def saturation_check(ramp_model, caldir, mylog, backup=1, skip_firstn=1):
     """
 
     with asdf.open(caldir["saturation"]) as satreffile:
-        satref = datamodels.SaturationRefModel.create_from_model(satreffile['roman'])
+        satref = datamodels.SaturationRefModel.create_from_model(satreffile["roman"])
         if skip_firstn != 0:
             old_data = ramp_model.data
             old_dq = ramp_model.groupdq
             old_read_pattern = ramp_model.meta.exposure.read_pattern
             ramp_model.data = old_data[skip_firstn:, ...]
             ramp_model.groupdq = old_dq[skip_firstn:, ...]
-            ramp_model.meta.exposure.read_pattern = (
-                ramp_model.meta.exposure.read_pattern[skip_firstn:])
+            ramp_model.meta.exposure.read_pattern = ramp_model.meta.exposure.read_pattern[skip_firstn:]
         saturation.flag_saturation(ramp_model, satref, n_pix_grow_sat=1, backup=backup)
         if skip_firstn != 0:
             ramp_model.data = old_data
@@ -320,8 +319,13 @@ def calibrateimage(config, verbose=True):
     saturation_check(ramp_model, caldir, mylog, backup=backup)
     mylog.append("Saturation check complete\n")
 
-    data, rdq, pdq, l1meta, amp33 = (ramp_model['data'], ramp_model['groupdq'], ramp_model['pixeldq'],
-        ramp_model.meta, ramp_model['amp33'])
+    data, rdq, pdq, l1meta, amp33 = (
+        ramp_model["data"],
+        ramp_model["groupdq"],
+        ramp_model["pixeldq"],
+        ramp_model.meta,
+        ramp_model["amp33"],
+    )
     (ngrp, ny, nx) = np.shape(data)
 
     # reference pixel correction -- right now using a 5-pixel filter of the left & right ref pixels
@@ -404,7 +408,7 @@ def calibrateimage(config, verbose=True):
     flat = (flat / AreaFactor).astype(np.float32)
     mylog.append("acquired flat field\n")
     for p in [1, 2, 5, 10, 25, 50, 75, 90, 95, 98, 99]:
-        mylog.append(f" {p:2d}%ile = {np.percentile(flat,p):6.4f},")
+        mylog.append(f" {p:2d}%ile = {np.percentile(flat, p):6.4f},")
     mylog.append("\n")
     slope /= flat
     slope_err_read /= flat

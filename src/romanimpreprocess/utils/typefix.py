@@ -1,6 +1,5 @@
 """Simple fix to output type if we have a different schema."""
 
-
 import asdf
 import numpy as np
 
@@ -32,7 +31,8 @@ def fix(tree):
         print("added dummy fields:", tree["roman"]["meta"]["dummyfields"])
 
     tree["roman"]["meta"]["exposure"]["read_pattern"] = list(
-        tree["roman"]["meta"]["exposure"]["read_pattern"])
+        tree["roman"]["meta"]["exposure"]["read_pattern"]
+    )
 
     # Which fields to check in "roman"
     changetypes = {"err": "float16", "var_poisson": "float16", "var_rnoise": "float16", "var_flat": "float16"}
