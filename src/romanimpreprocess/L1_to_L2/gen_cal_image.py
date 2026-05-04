@@ -115,7 +115,8 @@ def initializationstep(config, caldir, mylog, exclude_first=False):
     with open_dataset(config["IN"], update_version=True) as l1model:
         ramp_model = dq_initialization.do_dqinit(l1model, mask, expand_gw_flagging=1)
 
-    maskfile.close()
+    if "mask" in caldir:
+        maskfile.close()
 
     meta = {
         "frame_time": ramp_model.meta.exposure.frame_time,
@@ -361,7 +362,7 @@ def calibrateimage(config, verbose=True):
         data,
         caldir["linearitylegendre"],  # the linearity cube
         do_not_flag_first=meta["read_pattern"][0]
-        == 0,  # don't flag the first read for being off scale if it is the reset
+        == [0],  # don't flag the first read for being off scale if it is the reset
         attempt_corr=~rdq
         & pixel.SATURATED,  # don't flag saturated pixels as having a bad linearity correction
     )
