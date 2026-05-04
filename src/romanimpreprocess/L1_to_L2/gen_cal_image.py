@@ -20,7 +20,6 @@ calibrateimage
 
 import sys
 import warnings  # noqa: F401
-from copy import deepcopy
 
 import asdf
 
@@ -31,16 +30,13 @@ import yaml
 from astropy import units as u
 from astropy.io import fits
 from roman_datamodels import datamodels
-from roman_datamodels.dqflags import pixel, group
+from roman_datamodels.dqflags import group, pixel
+from romancal.datamodels.fileio import open_dataset
 from romancal.dq_init import dq_initialization
 from romancal.saturation import saturation
-from romancal.datamodels.fileio import open_dataset
 from romanisim import image as rimage
 from romanisim import persistence as rip
 from romanisim import wcs as riwcs
-
-# stcal imports
-from stcal.saturation.saturation import flag_saturated_pixels
 
 from .. import pars
 from ..utils import (
@@ -112,7 +108,7 @@ def initializationstep(config, caldir, mylog, exclude_first=False):
 
     if "mask" in caldir:
         maskfile = asdf.open(caldir['mask'])
-        mask = typefix.dict_to_attribute(maskfile['roman'])
+        mask = datamodels.MaskRefModel.create_from_model(maskfile['roman'])
     else:
         mask = None
 
@@ -123,7 +119,7 @@ def initializationstep(config, caldir, mylog, exclude_first=False):
 
     meta = {
         "frame_time": ramp_model.meta.exposure.frame_time,
-        "read_pattern": [list(x) for x in list(ramp_model.meta.exposure.read_pattern)],
+        "read_pattern": ramp_model.meta.exposure['read_pattern'],
     }
 
     # more information
@@ -167,6 +163,8 @@ def saturation_check(ramp_model, caldir, mylog, backup=1, skip_firstn=1):
         Number of frames to "back up" when checking saturation.
         This is read from config["SATURATION_BACKUP"]. It defaults to 1
         if the keyword is not included in the config.
+    skip_firstn : int
+        Do not check the first n resultants in ramp_model.data for saturation.
 
     Returns
     -------
@@ -175,7 +173,7 @@ def saturation_check(ramp_model, caldir, mylog, backup=1, skip_firstn=1):
     """
 
     with asdf.open(caldir["saturation"]) as satreffile:
-        satref = typefix.dict_to_attribute(satreffile['roman'])
+        satref = datamodels.SaturationRefModel.create_from_model(satreffile['roman'])
         if skip_firstn != 0:
             old_data = ramp_model.data
             old_dq = ramp_model.groupdq

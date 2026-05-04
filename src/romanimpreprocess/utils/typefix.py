@@ -1,14 +1,8 @@
 """Simple fix to output type if we have a different schema."""
 
+
 import asdf
 import numpy as np
-import types
-
-
-def dict_to_attribute(d):
-    if isinstance(d, dict):
-        return types.SimpleNamespace(**{k: dict_to_attribute(v) for k, v in d.items()})
-    return d
 
 
 def fix(tree):
