@@ -150,7 +150,7 @@ def saturation_check(ramp_model, caldir, mylog, backup=1, skip_firstn=1):
     Performs a saturation check on the data cube (`data`) using the calibration files in `caldir`.
     Information is appended to `mylog`. The flags `rdq` and `pdq` are updated in place.
 
-    This function serves as a wrapper for ``flag_saturated_pixels`` (imported from ``stcal``).
+    This function serves as a wrapper for ``flag_saturation`` (imported from ``romancal``).
 
     Parameters
     ----------
@@ -161,9 +161,7 @@ def saturation_check(ramp_model, caldir, mylog, backup=1, skip_firstn=1):
     mylog : romanimpreprocess.utils.processlog.ProcessLog
         Processing log.
     backup : int
-        Number of frames to "back up" when checking saturation.
-        This is read from config["SATURATION_BACKUP"]. It defaults to 1
-        if the keyword is not included in the config.
+        Number of resultants to "back up" when flagging saturation.
     skip_firstn : int
         Do not check the first n resultants in ramp_model.data for saturation.
 
