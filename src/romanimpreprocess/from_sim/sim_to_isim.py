@@ -47,9 +47,10 @@ from astropy.io import fits
 from romanisim import __version__ as rstversion
 from romanisim import image as rimage
 from romanisim import l1 as rstl1
-from romanisim import parameters, util, wcs
 from romanisim import persistence as rip
 from romanisim import ris_make_utils as ris
+from romanisim import util, wcs
+from romanisim.models import parameters
 
 from .. import pars
 from ..utils import typefix
