@@ -74,7 +74,7 @@ def ref_subtraction_channel(image, channel_start=0, channel_end=128, use_ref_cha
     return image
 
 
-def ref_subtraction_row(image, use_ref_channel=False):
+def ref_subtraction_row(image, use_ref_channel=False, slope=None):
     """
     Row-based reference subtraction.
 
@@ -90,6 +90,9 @@ def ref_subtraction_row(image, use_ref_channel=False):
         A 2D numpy array representing the slopes image.
     use_ref_channel : bool, optional
         Whether to use the reference output for fitting.
+    slope : float, optional
+        The multiplying factor by the reference to subtract from the data.
+        If None, then does a fit to determine the best slope.
 
     Returns
     -------
@@ -101,21 +104,22 @@ def ref_subtraction_row(image, use_ref_channel=False):
     sci_medians = []
     ref_medians = []
     for row in range(0, 4096):
-        sci_medians.append(np.median(image[row, 4:4088]))
+        sci_medians.append(np.median(image[row, 4:4092]))
         if use_ref_channel:
             ref_medians.append(np.median(image[row, 4096:4224]))
         else:
-            ref_medians.append(np.median(np.hstack((image[row, 0:4], image[row, 4088:4096]))))
+            ref_medians.append(np.median(np.hstack((image[row, 0:4], image[row, 4092:4096]))))
+    ref_medians = np.array(ref_medians)
 
-    m_med, b_med = np.polyfit(ref_medians, sci_medians, 1)
+    m_med, _ = np.polyfit(ref_medians, sci_medians, 1)
+    ctr = np.median(ref_medians)
 
-    def med_func(i):
-        I_med = m_med * i + b_med
-        return I_med
+    # overwrite with provided slope if specified
+    if slope is not None:
+        m_med = slope
 
     # Iterate through all rows: compute median value, subtract it across the whole row
     for i in range(0, 4096):
-        I_med = med_func(ref_medians[i])
-        image[i, :] = image[i, :] - I_med
+        image[i, :] = image[i, :] - m_med * (ref_medians[i] - ctr)
 
     return image
