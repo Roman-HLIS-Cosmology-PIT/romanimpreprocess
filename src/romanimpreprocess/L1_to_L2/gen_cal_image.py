@@ -330,8 +330,9 @@ def calibrateimage(config, verbose=True):
     # reference pixel correction -- right now using a 5-pixel filter of the left & right ref pixels
     # and the top & bottom pixel subtraction functions from Laliotis et al. (2024)
     # **This is a placeholder until:
-    #  - amp33 to be implemented (currently the simulation leaves it blank)
     #  - improved reference pixel correction from GSFC group should be available
+    #
+    slope = None  # will overwrite later
     with asdf.open(caldir["dark"]) as f:
         # rsub = np.zeros((ngrp, pars.nside), dtype=np.float32)
         for j in range(ngrp):
@@ -341,7 +342,21 @@ def calibrateimage(config, verbose=True):
                 if "amp33" in fr["roman"]:
                     image[:, -pars.channelwidth :] = amp33[j, :, :] - fr["roman"]["amp33"]["med"]
                     image[:, -pars.channelwidth :] -= np.median(image[:, -pars.channelwidth :])
-            image = reference_subtraction.ref_subtraction_row(image, use_ref_channel=True)
+
+                    # compute optimal slope, but only once
+                    if slope is None:
+                        a = fr["roman"]["amp33"]
+                        cvar = fr["roman"]["anc"]["C_PINK"] ** 2
+                        slope = (
+                            a["M_PINK"]
+                            * cvar
+                            / (
+                                a["M_PINK"] ** 2 * cvar
+                                + a["RU_PINK"] ** 2
+                                + np.median(a["std"]) ** 2 / 128 / np.log(4096)
+                            )
+                        )
+            image = reference_subtraction.ref_subtraction_row(image, use_ref_channel=True, slope=slope)
             image = reference_subtraction.ref_subtraction_channel(image, use_ref_channel=True)
             data[j, :, :] = image[:, : pars.nside] + f["roman"]["data"][j, :, :]
 
