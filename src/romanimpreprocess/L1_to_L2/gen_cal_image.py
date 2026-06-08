@@ -662,6 +662,12 @@ def calibrateimage(config, verbose=True):
         if x in im2 and hasattr(im2[x], "value"):
             im2[x] = im2[x].value
 
+    # carry through the romancal ramp-fit diagnostics
+    # dumo is slope-like, so flat-field it
+    if config.get("romancal_ramp_fit", False):
+        im2["dumo"] = (np.asarray(image_model.dumo) / flat[nb:-nb, nb:-nb]).astype(np.float16)
+        im2["chisq"] = np.asarray(image_model.chisq, dtype=np.float16)
+
     oututils.add_in_ref_data(im2, config["IN"], rdq, pdq)
 
     # update the metadata
