@@ -34,6 +34,10 @@ from roman_datamodels.dqflags import group, pixel
 from romancal.datamodels.fileio import open_dataset
 from romancal.dq_init import dq_initialization
 from romancal.saturation import saturation
+from romancal.dark_current import dark_current_step
+from romancal.dark_decay.dark_decay import subtract_dark_decay
+from romancal.ramp_fitting import ramp_fit_step
+from romancal.wfi18_transient.wfi18_transient import correct_anomaly
 from romanisim import image as rimage
 from romanisim import persistence as rip
 from romanisim import wcs as riwcs
@@ -165,10 +169,6 @@ def saturation_check(ramp_model, caldir, mylog, backup=1, skip_firstn=1):
     skip_firstn : int
         Do not check the first n resultants in ramp_model.data for saturation.
 
-    Returns
-    -------
-    None
-
     """
 
     with asdf.open(caldir["saturation"]) as satreffile:
@@ -187,40 +187,36 @@ def saturation_check(ramp_model, caldir, mylog, backup=1, skip_firstn=1):
             ramp_model.meta.exposure.read_pattern = old_read_pattern
 
 
-def subtract_dark_current(data, rdq, pdq, caldir, meta, mylog):
+def subtract_dark_current(image_model, caldir, mylog):
     """
-    Subtracts dark current from a linearized image.
+    Subtracts dark current from a rate image.
 
-    The `data`, `rdq`, and `pdq` fields are updated in place.
+    image_model is updated in place.
+
+    romancal expects to subtract from an active-region image only
+    (4088x4088) rather than a full-frame 4096x4096 image, so there
+    are some gymnastics to handle that difference.
 
     Parameters
     ----------
-    data : np.array
-        3D data cube (in DN_lin, shape ngroup,4096,4096)
-    rdq : np.array
-        3D ramp data quality (uint32, shape ngroup,4096,4096)
-    pdq : np.array
-        2D pixel data quality (uint32, shape 4096,4096)
+    image_model : roman_datamodels.datamodels.ImageModel
+        2D Roman image model (DN / s), full 4096x4096 frame.
     caldir : dict
         Locations of calibration files.
-    meta : dict
-        Metadata dictionary (from L1 ASDF tree).
     mylog : romanimpreprocess.utils.processlog.ProcessLog
         Processing log.
-
-    Returns
-    -------
-    np.array
-        The 2D image of subtracted dark current in DN/s.
-
     """
 
+    nb = pars.nborder
     with asdf.open(caldir["dark"]) as f:
-        dcsub = np.copy(f["roman"]["dark_slope"])
-    ngrp = meta["ngrp"]
-    for j in range(ngrp):
-        data[j, :, :] -= meta["tbar"][j] * dcsub
-    return dcsub
+        darkref = datamodels.DarkRefModel.create_from_model(f["roman"])
+        full_data = image_model.data
+        full_dq = image_model.dq
+        image_model.data = full_data[nb:-nb, nb:-nb]
+        image_model.dq = full_dq[nb:-nb, nb:-nb]
+        dark_current_step.subtract_dark_current(image_model, darkref)
+        image_model.data = full_data
+        image_model.dq = full_dq
 
 
 def repackage_wcs(thewcs):
@@ -280,6 +276,191 @@ def repackage_wcs(thewcs):
         #    raise Exception("Unrecognized WCS") from e
 
     return wcsobj
+
+
+def correct_dark_decay(ramp_model, caldir, mylog):
+    """
+    Subtracts the dark decay signal from a resultant cube.
+
+    ramp_model is updated in place.
+
+    Parameters
+    ----------
+    ramp_model : roman_datamodels.datamodels.RampModel
+        data model including resultant cube
+    caldir : dict
+        Locations of calibration files.
+    mylog : romanimpreprocess.utils.processlog.ProcessLog
+        Processing log.
+    """
+
+    detector = ramp_model.meta.instrument.detector
+    with asdf.open(caldir["dark_decay"]) as f:
+        decayref = datamodels.DarkdecaysignalRefModel.create_from_model(f["roman"])
+        decay_table = getattr(decayref.decay_table, detector)
+        subtract_dark_decay(
+            ramp_model.data,
+            decay_table.amplitude,
+            decay_table.time_constant,
+            ramp_model.meta.exposure.frame_time,
+            ramp_model.meta.exposure.read_pattern,
+            int(detector[3:]),
+        )
+    mylog.append("Dark decay correction complete\n")
+    ramp_model.meta.cal_step.dark_decay = "COMPLETE"
+
+
+def correct_wfi18_transient(ramp_model, mylog, mask_rows=False):
+    """
+    Corrects the WFI18 first-read transient.
+
+    Only applies to detector WFI18; for any other detector the model is
+    returned unchanged. The ramp_model is updated in place.
+
+    Parameters
+    ----------
+    ramp_model : roman_datamodels.datamodels.RampModel
+        data model including resultant cube
+    mylog : romanimpreprocess.utils.processlog.ProcessLog
+        Processing log.
+    mask_rows : bool
+        If True, mask the most affected rows instead of fitting and
+        removing the anomaly.
+    """
+
+    if ramp_model.meta.instrument.detector != "WFI18":
+        mylog.append("Skipping WFI18 transient correction (not WFI18)\n")
+        ramp_model.meta.cal_step.wfi18_transient = "N/A"
+        return
+    correct_anomaly(ramp_model, mask_rows=mask_rows)
+    mylog.append("WFI18 transient correction complete\n")
+    ramp_model.meta.cal_step.wfi18_transient = "COMPLETE"
+
+
+def _embed_active(active, nb=4):
+    """
+    Embeds the active region into a full region that includes border pixels.
+
+    Parameters
+    ----------
+    active : np.array
+        2D array covering the active 4088x4088 pixels only
+    nb : int
+        Number of reference-pixel border rows/columns, usually 4.
+
+    Returns
+    -------
+    np.array
+        Full-frame array with the border zeroed and the active region
+        filled. Returned as float32.
+
+    """
+
+    full = np.zeros(tuple(x + 2 * nb for x in active.shape), dtype=np.float32)
+    full[nb:-nb, nb:-nb] = active
+    return full
+
+
+def do_ramp_fit(ramp_model, meta, config, caldir, mylog):
+    """
+    Fit a slope to a ramp model, returning a 2D rate ImageModel.
+
+    If config["romancal_ramp_fit"] is True, use the likelihood-based
+    ramp fitting approach taken in romancal; otherwise, use the specialized
+    ramp fitting approach from fitting.ramp_fit.
+
+    romancal expects to return 4088x4088 images (trimming the border pixels),
+    but this pipeline expects 4096x4096 full frame images.  We work around that
+    by reembedding the active region in the larger frame.  These pixels get
+    trimmed off anyway in the final image.
+
+    Parameters
+    ----------
+    ramp_model : roman_datamodels.datamodels.RampModel
+        Ramp data model holding the linearized cube, flags, and the
+        border-reference fields.
+    meta : dict
+        Metadata dictionary. ``meta["K"]`` (ramp weights) and
+        ``meta["ramp_opt_pars"]`` are set here for downstream bookkeeping.
+    config : dict
+        Configuration dictionary.
+    caldir : dict
+        Locations of calibration files.
+    mylog : romanimpreprocess.utils.processlog.ProcessLog
+        Processing log.
+
+    Returns
+    -------
+    roman_datamodels.datamodels.ImageModel
+        2D rate image (DN/s), full 4096x4096 frame.
+
+    """
+
+    nb = pars.nborder
+
+    if config.get("romancal_ramp_fit", False):
+        # romancal maximum-likelihood ramp fit
+        with asdf.open(caldir["read"]) as fr:
+            readnoise = datamodels.ReadnoiseRefModel.create_from_model(fr["roman"])
+        with asdf.open(caldir["gain"]) as fg:
+            gain = datamodels.GainRefModel.create_from_model(fg["roman"])
+        image_model = ramp_fit_step.likely(
+            ramp_model,
+            readnoise,
+            gain,
+            include_var_rnoise=True,
+            jump_kw=config.get("JUMP_KW", None),
+        )
+        meta["K"] = None  # not used by the likelihood fitter
+        meta["ramp_opt_pars"] = None  # likewise
+        mylog.append("romancal likelihood ramp fit complete\n")
+    else:
+        uopt = {"slope": 0.4, "gain": 1.8, "sigma_read": 6.5}
+        if "RAMP_OPT_PARS" in config:
+            uopt = config["RAMP_OPT_PARS"]
+        u_ = float(uopt["slope"]) / float(uopt["gain"]) / float(uopt["sigma_read"]) ** 2
+        meta["K"] = fitting.construct_weights(u_, meta, exclude_first=True)
+        meta["ramp_opt_pars"] = uopt
+        mylog.append(f"\n\nRamp fit optimized for u = {u_:11.5E} s**-1\n")
+        mylog.append("weights = {}\n".format(meta["K"]))
+        if "JUMP_DETECT_PARS" in config:
+            meta["jump_detect_pars"] = config["JUMP_DETECT_PARS"]
+        slope, slope_err_read, slope_err_poisson = fitting.ramp_fit(
+            ramp_model.data,
+            ramp_model.groupdq,
+            ramp_model.pixeldq,
+            meta,
+            caldir,
+            mylog,
+            exclude_first=True,
+        )
+        # package into an ImageModel via the (private) romancal helper, which
+        # trims the reference border and returns the active region.
+        # TODO: replace _create_image_model with a public path.
+        image_info = {
+            "slope": slope,
+            "dq": ramp_model.pixeldq,
+            "err": np.hypot(slope_err_read, slope_err_poisson),
+            "var_poisson": slope_err_poisson**2,
+            "var_rnoise": slope_err_read**2,
+        }
+        image_model = ramp_fit_step._create_image_model(
+            ramp_model, image_info, include_var_rnoise=True
+        )
+
+    # re-embed the active region into the full frame so the rest of the
+    # pipeline stays full-frame. The science/variance border pixels are zeroed
+    # (they are trimmed off the final product anyway); the border dq keeps the
+    # reference-pixel flags carried by ramp_model.pixeldq.
+    image_model.data = _embed_active(image_model.data, nb)
+    image_model.var_poisson = _embed_active(image_model.var_poisson, nb)
+    image_model.var_rnoise = _embed_active(image_model.var_rnoise, nb)
+    image_model.err = _embed_active(image_model.err, nb)
+    full_dq = np.array(ramp_model.pixeldq, dtype=np.uint32)
+    full_dq[nb:-nb, nb:-nb] = image_model.dq
+    image_model.dq = full_dq
+
+    return image_model
 
 
 def calibrateimage(config, verbose=True):
@@ -368,6 +549,19 @@ def calibrateimage(config, verbose=True):
     else:
         mylog.append("Skipping bias correction\n")
 
+    if "dark_decay" in caldir:
+        correct_dark_decay(ramp_model, caldir, mylog)
+    else:
+        ramp_model.meta.cal_step.dark_decay = "INCOMPLETE"
+
+    if config.get("correct_wfi18_transient", False):
+        # function marks the step "N/A" if not WFI18
+        correct_wfi18_transient(
+            ramp_model, mylog, mask_rows=config.get("WFI18_MASK_ROWS", False)
+        )
+    else:
+        ramp_model.meta.cal_step.wfi18_transient = "INCOMPLETE"
+
     # linearity correxction
     # ** right now applies the linearity to a group average, which isn't strictly correct **
     # ** will fix this in a future upgrade! **
@@ -379,18 +573,10 @@ def calibrateimage(config, verbose=True):
         attempt_corr=~rdq
         & pixel.SATURATED,  # don't flag saturated pixels as having a bad linearity correction
     )
-    if len(np.shape(dq_lin)) == 2:
-        rdq |= dq_lin[None, :, :]
-    else:
-        rdq |= dq_lin
+    pdq |= dq_lin
     del dq_lin  # we have everything we need
     mylog.append("Linearity correction complete\n")
-    # now data is in linearized DN, floating point
-
-    # subtract out dark current
-    # dcsub is the dark current that was subtracted --- data is updated in place
-    subtract_dark_current(data, rdq, pdq, caldir, meta, mylog)  # removed dcsub= assignment as it isn't used
-    mylog.append("Dark current subtracted")
+    ramp_model.data = data  # keep data and ramp_model.data in sync
 
     # IPC correction
     if "ipc4d" in caldir:
@@ -398,19 +584,18 @@ def calibrateimage(config, verbose=True):
     else:
         mylog.append("skipping IPC correction\n")
 
-    # ramp fitting
-    uopt = {"slope": 0.4, "gain": 1.8, "sigma_read": 6.5}
-    if "RAMP_OPT_PARS" in config:
-        uopt = config["RAMP_OPT_PARS"]
-    u_ = float(uopt["slope"]) / float(uopt["gain"]) / float(uopt["sigma_read"]) ** 2
-    meta["K"] = fitting.construct_weights(u_, meta, exclude_first=True)
-    mylog.append(f"\n\nRamp fit optimized for u = {u_:11.5E} s**-1\n")
-    mylog.append("weights = {}\n".format(meta["K"]))
-    if "JUMP_DETECT_PARS" in config:
-        meta["jump_detect_pars"] = config["JUMP_DETECT_PARS"]
-    slope, slope_err_read, slope_err_poisson = fitting.ramp_fit(
-        data, rdq, pdq, meta, caldir, mylog, exclude_first=True
-    )
+    # ramp-fit to a 2D rate ImageModel
+    image_model = do_ramp_fit(ramp_model, meta, config, caldir, mylog)
+
+    # subtract out dark current (updates image_model in place)
+    subtract_dark_current(image_model, caldir, mylog)
+    mylog.append("Dark current subtracted\n")
+
+    # unpack the rate image back into full-frame arrays for use downstream
+    slope = np.asarray(image_model.data, dtype=np.float32)
+    pdq = np.asarray(image_model.dq, dtype=np.uint32)
+    slope_err_read = np.sqrt(np.asarray(image_model.var_rnoise, dtype=np.float32))
+    slope_err_poisson = np.sqrt(np.asarray(image_model.var_poisson, dtype=np.float32))
 
     # apply flat field
     flat = flatutils.get_flat(caldir, meta, pdq)
@@ -470,9 +655,6 @@ def calibrateimage(config, verbose=True):
     # update the metadata
     # oututils.update_flags(im2, "gen_cal_image") # <-- this doesn't work with updated roman_datamodels,
     #                                                    but it isn't essential
-    if "cal_step" in im2["meta"]:
-        im2["meta"]["cal_step"]["wfi18_transient"] = "INCOMPLETE"
-        im2["meta"]["cal_step"]["dark_decay"] = "INCOMPLETE"
     oututils.add_in_provenance(im2, "gen_cal_image")
 
     # process information specific to this code
@@ -481,7 +663,7 @@ def calibrateimage(config, verbose=True):
         "medgain": medgain,
         "skyorder": skyorder,
         "skycoefs": skycoefs,
-        "ramp_opt_pars": uopt,
+        "ramp_opt_pars": meta["ramp_opt_pars"],
         "meta": meta,
         "weights": meta["K"],
         "config": config,
