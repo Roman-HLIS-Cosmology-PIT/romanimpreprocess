@@ -192,11 +192,12 @@ def jump_detect(data, rdq, pdq, meta, caldir, mylog, exclude_first=True, truncat
     # get Poisson variance information
     # first coef (units: 1/time, since K has units of 1/time)
     # this would be 1/exposure time for simple CDS
+    # K[t] is the weight for resultant t
     coef = 0.0
-    for i in range(ngrp - start):
-        coef += K[i] ** 2 * meta["tau"][i + start]
-        for j in range(i):
-            coef += 2.0 * K[i] * K[j] * meta["tbar"][j + start]
+    for i in range(start, ngrp):
+        coef += K[i] ** 2 * meta["tau"][i]
+        for j in range(start, i):
+            coef += 2.0 * K[i] * K[j] * meta["tbar"][j]
     with asdf.open(caldir["gain"]) as f:
         dvardt = np.clip(slope / np.clip(f["roman"]["data"], 1e-4, 1e4), 0.0, None)
         # Poisson variance [DN^2] per second, clipped to be positive and avoid divbyzero
