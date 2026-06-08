@@ -197,6 +197,10 @@ def subtract_dark_current(image_model, caldir, mylog):
     (4088x4088) rather than a full-frame 4096x4096 image, so there
     are some gymnastics to handle that difference.
 
+    dark subtraction occurs after IPC deconvolution, but the dark
+    reference file is IPC-convolved, so this routine also corrects
+    the dark reference file for IPC.
+
     Parameters
     ----------
     image_model : roman_datamodels.datamodels.ImageModel
@@ -210,6 +214,14 @@ def subtract_dark_current(image_model, caldir, mylog):
     nb = pars.nborder
     with asdf.open(caldir["dark"]) as f:
         darkref = datamodels.DarkRefModel.create_from_model(f["roman"])
+
+        # correct IPC in dark reference file
+        if "ipc4d" in caldir:
+            dslope = np.array(darkref.dark_slope, dtype=np.float32)[None, :, :]
+            ipc_linearity.correct_cube(dslope, caldir["ipc4d"], None, gain_file=caldir["gain"])
+            darkref.dark_slope = dslope[0]
+            mylog.append("IPC-corrected the dark slope\n")
+
         full_data = image_model.data
         full_dq = image_model.dq
         image_model.data = full_data[nb:-nb, nb:-nb]
