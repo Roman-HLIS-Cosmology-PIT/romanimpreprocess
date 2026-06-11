@@ -87,7 +87,7 @@ def wcs_from_config(config):
     return None
 
 
-def initializationstep(config, caldir, mylog, exclude_first=False):
+def initializationstep(config, caldir, mylog):
     """
     Initialization step.
 
@@ -99,8 +99,6 @@ def initializationstep(config, caldir, mylog, exclude_first=False):
         Locations of calibration files.
     mylog : romanimpreprocess.utils.processlog.ProcessLog
         Processing log.
-    exclude_first : bool
-        if True, mark first resultant as DO_NOT_USE
 
     Returns
     -------
@@ -141,7 +139,7 @@ def initializationstep(config, caldir, mylog, exclude_first=False):
             "frame_time"
         ]
 
-    if exclude_first:
+    if config.get("EXCLUDE_FIRST", True):
         ramp_model["groupdq"][0, ...] |= group.DO_NOT_USE
 
     return ramp_model, meta
@@ -416,22 +414,30 @@ def do_ramp_fit(ramp_model, meta, config, caldir, mylog):
             readnoise = datamodels.ReadnoiseRefModel.create_from_model(fr["roman"])
         with asdf.open(caldir["gain"]) as fg:
             gain = datamodels.GainRefModel.create_from_model(fg["roman"])
+        # stcal's likelihood fitter treats the read-noise reference as
+        # CDS and divides it by sqrt(2) internally
+        # we multiply by sqrt(2) to convert to this convention.
+        readnoise.data = (np.sqrt(2) * readnoise.data).astype('f4')
+        # exclude_first handling is not required here, since these pixels
+        # are marked DO_NOT_USE in the initializationstep
         image_model = ramp_fit_step.likely(
             ramp_model,
             readnoise,
             gain,
             include_var_rnoise=True,
+            rejection_threshold=config.get("REJECTION_THRESHOLD", 4.5),
             jump_kw=config.get("JUMP_KW", None),
         )
         meta["K"] = None  # not used by the likelihood fitter
         meta["ramp_opt_pars"] = None  # likewise
         mylog.append("romancal likelihood ramp fit complete\n")
     else:
+        exclude_first = config.get("EXCLUDE_FIRST", True)
         uopt = {"slope": 0.4, "gain": 1.8, "sigma_read": 6.5}
         if "RAMP_OPT_PARS" in config:
             uopt = config["RAMP_OPT_PARS"]
         u_ = float(uopt["slope"]) / float(uopt["gain"]) / float(uopt["sigma_read"]) ** 2
-        meta["K"] = fitting.construct_weights(u_, meta, exclude_first=True)
+        meta["K"] = fitting.construct_weights(u_, meta, exclude_first=exclude_first)
         meta["ramp_opt_pars"] = uopt
         mylog.append(f"\n\nRamp fit optimized for u = {u_:11.5E} s**-1\n")
         mylog.append("weights = {}\n".format(meta["K"]))
@@ -444,7 +450,7 @@ def do_ramp_fit(ramp_model, meta, config, caldir, mylog):
             meta,
             caldir,
             mylog,
-            exclude_first=True,
+            exclude_first=exclude_first,
         )
         # package into an ImageModel via the (private) romancal helper, which
         # trims the reference border and returns the active region.
@@ -686,7 +692,7 @@ def calibrateimage(config, verbose=True):
         "weights": meta["K"],
         "config": config,
         "log": mylog.output,
-        "exclude_first": True,
+        "exclude_first": config.get("EXCLUDE_FIRST", True),
     }
 
     # this is for getting the ramp data so we know which range was used
