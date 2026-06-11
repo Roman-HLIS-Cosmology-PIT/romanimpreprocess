@@ -7,8 +7,10 @@ import os
 import asdf
 import numpy as np
 from astropy.io import fits
+from astropy.stats import mad_std
 from astropy.wcs import WCS
 from PIL import Image
+from roman_datamodels.dqflags import pixel
 from romanimpreprocess.from_sim import sim_to_isim
 from romanimpreprocess.L1_to_L2 import gen_cal_image, gen_noise_image
 from romanimpreprocess.utils import fpaplot, ipc_linearity, maskhandling, visualize
@@ -516,6 +518,15 @@ def test_run_all(tmp_path):
     print("\nwrite mask")
     maskhandling.PixelMask1.convert_file(c2["OUT"], c2["OUT"][:-5] + "_mask.fits")
 
+    # Also exercise the romancal likelihood ramp-fit path
+    # Turn on the WFI18 transient step, which is a no-op here because this is WFI04.
+    c_rc = c2 | {
+        "OUT": tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_romancalfit.asdf",
+        "romancal_ramp_fit": True,
+        "correct_wfi18_transient": True,
+    }
+    gen_cal_image.calibrateimage(c_rc)
+
     ### TESTS ON THE OUTPUTS
 
     dtrim = 4
@@ -546,6 +557,9 @@ def test_run_all(tmp_path):
             if i == 2:
                 assert count > 10000 and count < 30000
         isGood = np.where(a["roman"]["dq"] == 0, 1, 0)
+        dq_local = np.asarray(a["roman"]["dq"])
+        err_local = np.asarray(a["roman"]["err"], dtype=np.float64)
+        vp_local = np.asarray(a["roman"]["var_poisson"], dtype=np.float64)
 
         # now pull out the data, in DN/s
         data_out = np.copy(a["roman"]["data"])
@@ -583,6 +597,47 @@ def test_run_all(tmp_path):
     # some quality checks on unmasked pixels
     assert np.count_nonzero(np.abs(x) > 100) < 50
     assert np.count_nonzero(np.logical_and(np.abs(x) > 20, expected_signal < 1)) < 50
+
+    # checks on the romancal likelihood ramp-fit output
+    with asdf.open(c_rc["OUT"]) as a_rc:
+        assert np.shape(a_rc["roman"]["data"]) == (4088, 4088)
+        assert "dumo" in a_rc["roman"]
+        assert "chisq" in a_rc["roman"]
+        isGood_rc = a_rc["roman"]["dq"] == 0
+        data_rc = np.asarray(a_rc["roman"]["data"])
+        assert np.all(np.isfinite(data_rc[isGood_rc]))
+        x_rc = np.where(isGood_rc, data_rc - expected_signal, 0.0)
+        assert np.count_nonzero(np.abs(x_rc) > 100) < 50
+
+        # The local and romancal-likelihood fitters use the same data, so on
+        # common good pixels they should report similar uncertainties, agree well
+        # within those uncertainties, and flag a similar number of cosmic rays.
+        dq_rc = np.asarray(a_rc["roman"]["dq"])
+        err_rc = np.asarray(a_rc["roman"]["err"], dtype=np.float64)
+        vp_rc = np.asarray(a_rc["roman"]["var_poisson"], dtype=np.float64)
+        common = isGood.astype(bool) & isGood_rc
+
+        # median uncertainties shouldn't change much. var_rnoise is not stored
+        # separately (recovered as err**2 - var_poisson); it differs more because
+        # the two fitters weight the resultants differently, so allow a factor.
+        for name, m_loc, m_rc, lo, hi in [
+            ("err", err_local, err_rc, 0.8, 1.2),
+            ("var_poisson", vp_local, vp_rc, 0.8, 1.2),
+            ("var_rnoise", err_local**2 - vp_local, err_rc**2 - vp_rc, 0.33, 3.0),
+        ]:
+            ratio = np.median(m_rc[common]) / np.median(m_loc[common])
+            print(f"uncertainty ratio rc/local {name:>11} = {ratio:.3f}")
+            assert lo < ratio < hi
+
+        # the two fits should agree well within their reported uncertainty
+        z = mad_std(((data_out - data_rc) / err_rc)[common])
+        # cosmic-ray flagging should be similar (also guards the read-noise
+        # sqrt(2) conversion -- without it the likelihood fitter over-flags)
+        jump_local = np.count_nonzero((dq_local & pixel.JUMP_DET) != 0)
+        jump_rc = np.count_nonzero((dq_rc & pixel.JUMP_DET) != 0)
+        print(f"mad_std((local-rc)/err)={z:.4f}, jump_local={jump_local}, jump_rc={jump_rc}")
+        assert z < 0.5
+        assert 100 < jump_rc < 2 * jump_local
 
     # check that we can convert the output to PDF
     visualize.visualize(
