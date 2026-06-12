@@ -414,9 +414,11 @@ def do_ramp_fit(ramp_model, meta, config, caldir, mylog):
             readnoise = datamodels.ReadnoiseRefModel.create_from_model(fr["roman"])
         with asdf.open(caldir["gain"]) as fg:
             gain = datamodels.GainRefModel.create_from_model(fg["roman"])
-        # stcal's likelihood fitter treats the read-noise reference as
-        # CDS and divides it by sqrt(2) internally
-        # we multiply by sqrt(2) to convert to this convention.
+        # stcal's likelihood fitter treats the read-noise reference as CDS and
+        # divides it by sqrt(2) internally; Roman read noise is single-read, so
+        # we multiply by sqrt(2) here to compensate. This is a stopgap: the plan
+        # is to handle the convention in romancal (likely_fit), after which this
+        # line should be removed.
         readnoise.data = (np.sqrt(2) * readnoise.data).astype('f4')
         # exclude_first handling is not required here, since these pixels
         # are marked DO_NOT_USE in the initializationstep
