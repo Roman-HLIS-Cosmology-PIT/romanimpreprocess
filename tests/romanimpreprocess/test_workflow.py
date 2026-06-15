@@ -617,26 +617,22 @@ def test_run_all(tmp_path):
         vp_rc = np.asarray(a_rc["roman"]["var_poisson"], dtype=np.float64)
         common = isGood.astype(bool) & isGood_rc
 
-        # median uncertainties shouldn't change much. var_rnoise is not stored
-        # separately (recovered as err**2 - var_poisson); it differs more because
-        # the two fitters weight the resultants differently, so allow a factor.
-        for name, m_loc, m_rc, lo, hi in [
-            ("err", err_local, err_rc, 0.8, 1.2),
-            ("var_poisson", vp_local, vp_rc, 0.8, 1.2),
-            ("var_rnoise", err_local**2 - vp_local, err_rc**2 - vp_rc, 0.33, 3.0),
+        # median uncertainties shouldn't change by more than ~5%
+        for name, m_loc, m_rc in [
+            ("err", err_local, err_rc),
+            ("var_poisson", vp_local, vp_rc),
         ]:
             ratio = np.median(m_rc[common]) / np.median(m_loc[common])
             print(f"uncertainty ratio rc/local {name:>11} = {ratio:.3f}")
-            assert lo < ratio < hi
+            assert 0.95 < ratio < 1.05
 
         # the two fits should agree well within their reported uncertainty
         z = mad_std(((data_out - data_rc) / err_rc)[common])
-        # cosmic-ray flagging should be similar (also guards the read-noise
-        # sqrt(2) conversion -- without it the likelihood fitter over-flags)
+        # cosmic-ray flagging should be similar
         jump_local = np.count_nonzero((dq_local & pixel.JUMP_DET) != 0)
         jump_rc = np.count_nonzero((dq_rc & pixel.JUMP_DET) != 0)
         print(f"mad_std((local-rc)/err)={z:.4f}, jump_local={jump_local}, jump_rc={jump_rc}")
-        assert z < 0.5
+        assert z < 0.05
         assert 100 < jump_rc < 2 * jump_local
 
     # check that we can convert the output to PDF
