@@ -227,6 +227,10 @@ def subtract_dark_current(image_model, caldir, mylog):
         dark_current_step.subtract_dark_current(image_model, darkref)
         image_model.data = full_data
         image_model.dq = full_dq
+    # Note: we deliberately do not mark image_model.meta.cal_step.dark here.
+    # make_asdf rebuilds the output metadata and resets cal_step, so the marking
+    # would not reach the output; cal_step handling is deferred until that is
+    # reworked.
 
 
 def repackage_wcs(thewcs):
@@ -320,7 +324,7 @@ def correct_dark_decay(ramp_model, caldir, mylog):
     ramp_model.meta.cal_step.dark_decay = "COMPLETE"
 
 
-def correct_wfi18_transient(ramp_model, mylog, mask_rows=False):
+def correct_wfi18_transient(ramp_model, config, mylog):
     """
     Corrects the WFI18 first-read transient.
 
@@ -331,18 +335,18 @@ def correct_wfi18_transient(ramp_model, mylog, mask_rows=False):
     ----------
     ramp_model : roman_datamodels.datamodels.RampModel
         data model including resultant cube
+    config : dict
+        Configuration dictionary. If ``config["wfi18_mask_rows"]`` is True,
+        mask the most affected rows instead of fitting and removing the anomaly.
     mylog : romanimpreprocess.utils.processlog.ProcessLog
         Processing log.
-    mask_rows : bool
-        If True, mask the most affected rows instead of fitting and
-        removing the anomaly.
     """
 
     if ramp_model.meta.instrument.detector != "WFI18":
         mylog.append("Skipping WFI18 transient correction (not WFI18)\n")
         ramp_model.meta.cal_step.wfi18_transient = "N/A"
         return
-    correct_anomaly(ramp_model, mask_rows=mask_rows)
+    correct_anomaly(ramp_model, mask_rows=config.get("wfi18_mask_rows", False))
     mylog.append("WFI18 transient correction complete\n")
     ramp_model.meta.cal_step.wfi18_transient = "COMPLETE"
 
@@ -416,9 +420,9 @@ def do_ramp_fit(ramp_model, meta, config, caldir, mylog):
             gain = datamodels.GainRefModel.create_from_model(fg["roman"])
         # stcal's likelihood fitter treats the read-noise reference as CDS and
         # divides it by sqrt(2) internally; Roman read noise is single-read, so
-        # we multiply by sqrt(2) here to compensate. This is a stopgap: the plan
-        # is to handle the convention in romancal (likely_fit), after which this
-        # line should be removed.
+        # we multiply by sqrt(2) here to compensate. This is a stopgap pending
+        # romancal PR https://github.com/spacetelescope/romancal/pull/2360 --
+        # delete this line once that is merged.
         readnoise.data = (np.sqrt(2) * readnoise.data).astype('f4')
         # exclude_first handling is not required here, since these pixels
         # are marked DO_NOT_USE in the initializationstep
@@ -426,7 +430,6 @@ def do_ramp_fit(ramp_model, meta, config, caldir, mylog):
             ramp_model,
             readnoise,
             gain,
-            include_var_rnoise=True,
             rejection_threshold=config.get("REJECTION_THRESHOLD", 4.5),
             jump_kw=config.get("JUMP_KW", None),
         )
@@ -454,19 +457,17 @@ def do_ramp_fit(ramp_model, meta, config, caldir, mylog):
             mylog,
             exclude_first=exclude_first,
         )
-        # package into an ImageModel via the (private) romancal helper, which
-        # trims the reference border and returns the active region.
-        # TODO: replace _create_image_model with a public path.
+        # package result into an ImageModel using a romancal routine.
+        # That routine also trims the reference border and returns the
+        # active region.  Ideally I want to deprecate this path and so I'm
+        # using a private romancal routine for now.
         image_info = {
             "slope": slope,
             "dq": ramp_model.pixeldq,
             "err": np.hypot(slope_err_read, slope_err_poisson),
             "var_poisson": slope_err_poisson**2,
-            "var_rnoise": slope_err_read**2,
         }
-        image_model = ramp_fit_step._create_image_model(
-            ramp_model, image_info, include_var_rnoise=True
-        )
+        image_model = ramp_fit_step._create_image_model(ramp_model, image_info)
 
     # re-embed the active region into the full frame so the rest of the
     # pipeline stays full-frame. The science/variance border pixels are zeroed
@@ -474,7 +475,6 @@ def do_ramp_fit(ramp_model, meta, config, caldir, mylog):
     # reference-pixel flags carried by ramp_model.pixeldq.
     image_model.data = _embed_active(image_model.data, nb)
     image_model.var_poisson = _embed_active(image_model.var_poisson, nb)
-    image_model.var_rnoise = _embed_active(image_model.var_rnoise, nb)
     image_model.err = _embed_active(image_model.err, nb)
     full_dq = np.array(ramp_model.pixeldq, dtype=np.uint32)
     full_dq[nb:-nb, nb:-nb] = image_model.dq
@@ -575,10 +575,7 @@ def calibrateimage(config, verbose=True):
         ramp_model.meta.cal_step.dark_decay = "INCOMPLETE"
 
     if config.get("correct_wfi18_transient", False):
-        # function marks the step "N/A" if not WFI18
-        correct_wfi18_transient(
-            ramp_model, mylog, mask_rows=config.get("WFI18_MASK_ROWS", False)
-        )
+        correct_wfi18_transient(ramp_model, config, mylog)
     else:
         ramp_model.meta.cal_step.wfi18_transient = "INCOMPLETE"
 
@@ -614,8 +611,11 @@ def calibrateimage(config, verbose=True):
     # unpack the rate image back into full-frame arrays for use downstream
     slope = np.asarray(image_model.data, dtype=np.float32)
     pdq = np.asarray(image_model.dq, dtype=np.uint32)
-    slope_err_read = np.sqrt(np.asarray(image_model.var_rnoise, dtype=np.float32))
+    # read-noise error is derived from the total err and the Poisson variance
+    # (the ramp fitter no longer exposes var_rnoise separately).
+    err = np.asarray(image_model.err, dtype=np.float32)
     slope_err_poisson = np.sqrt(np.asarray(image_model.var_poisson, dtype=np.float32))
+    slope_err_read = np.sqrt(np.clip(err**2 - slope_err_poisson**2, 0.0, None))
 
     # apply flat field
     flat = flatutils.get_flat(caldir, meta, pdq)
