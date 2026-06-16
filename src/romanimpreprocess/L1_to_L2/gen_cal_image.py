@@ -31,12 +31,12 @@ from astropy import units as u
 from astropy.io import fits
 from roman_datamodels import datamodels
 from roman_datamodels.dqflags import group, pixel
-from romancal.datamodels.fileio import open_dataset
-from romancal.dq_init import dq_initialization
-from romancal.saturation import saturation
 from romancal.dark_current import dark_current_step
 from romancal.dark_decay.dark_decay import subtract_dark_decay
+from romancal.datamodels.fileio import open_dataset
+from romancal.dq_init import dq_initialization
 from romancal.ramp_fitting import ramp_fit_step
+from romancal.saturation import saturation
 from romancal.wfi18_transient.wfi18_transient import correct_anomaly
 from romanisim import image as rimage
 from romanisim import persistence as rip
@@ -422,7 +422,7 @@ def do_ramp_fit(ramp_model, meta, config, caldir, mylog):
         # divides it by sqrt(2) internally; Roman read noise is single-read, so
         # we multiply by sqrt(2) here to compensate. This is a stopgap pending
         # romancal PR https://github.com/spacetelescope/romancal/pull/2360
-        readnoise.data = (np.sqrt(2) * readnoise.data).astype('f4')
+        readnoise.data = (np.sqrt(2) * readnoise.data).astype("f4")
         # exclude_first handling is not required here, since these pixels
         # are marked DO_NOT_USE in the initializationstep
         image_model = ramp_fit_step.likely(

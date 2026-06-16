@@ -344,9 +344,7 @@ def ramp_fit(data, rdq, pdq, meta, caldir, mylog, exclude_first=True):
     # first, masked for exclude_first) does not mean the whole pixel is bad.
     pdq2 |= np.bitwise_or.reduce(np.where(~rdq & pixel.SATURATED, rdq, 0), axis=0) & ~dnu
     # do set DO_NOT_USE when _every_ group is flagged
-    pdq2 |= np.where(np.bitwise_and.reduce(rdq & pixel.DO_NOT_USE != 0, axis=0), dnu, 0).astype(
-        np.uint32
-    )
+    pdq2 |= np.where(np.bitwise_and.reduce(rdq & pixel.DO_NOT_USE != 0, axis=0), dnu, 0).astype(np.uint32)
     # do not use pixels that saturated too fast
     pdq2 |= np.where(rdq[1 + start, :, :] & pixel.SATURATED != 0, pixel.DO_NOT_USE, 0).astype(np.uint32)
     # now fully flag the pixels that saturated
