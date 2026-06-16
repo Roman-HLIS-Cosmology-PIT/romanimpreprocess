@@ -421,8 +421,7 @@ def do_ramp_fit(ramp_model, meta, config, caldir, mylog):
         # stcal's likelihood fitter treats the read-noise reference as CDS and
         # divides it by sqrt(2) internally; Roman read noise is single-read, so
         # we multiply by sqrt(2) here to compensate. This is a stopgap pending
-        # romancal PR https://github.com/spacetelescope/romancal/pull/2360 --
-        # delete this line once that is merged.
+        # romancal PR https://github.com/spacetelescope/romancal/pull/2360
         readnoise.data = (np.sqrt(2) * readnoise.data).astype('f4')
         # exclude_first handling is not required here, since these pixels
         # are marked DO_NOT_USE in the initializationstep
