@@ -495,6 +495,17 @@ def test_run_all(tmp_path):
         }
     )
 
+    # copy this file into a place for WFI18 (so that we can test transient function)
+    with asdf.open(tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_{sca:d}.asdf") as a:
+        a["roman"]["meta"]["instrument"]["detector"] = "WFI18"
+        # this is just a toy example to exercise that the WFI18 correction is "on"
+        newdata = a["roman"]["data"][0, 4:-4, 4:-4].astype(np.float32)
+        rows = np.linspace(4, 4091, 4088)
+        rows += rows // 256 * 4  # insert a timing gap
+        newdata += (-80.0 * np.exp(-rows / 150.0) + 5.0 * np.exp(-rows / 1300.0)).astype(np.float32)[:, None]
+        a["roman"]["data"][0, 4:-4, 4:-4] = np.clip(newdata, 0, 65535)
+        a.write_to(tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_18.asdf")
+
     # Below here is stuff for Level 1-->2
 
     c2 = {
@@ -526,6 +537,15 @@ def test_run_all(tmp_path):
         "correct_wfi18_transient": True,
     }
     gen_cal_image.calibrateimage(c_rc)
+
+    # now do a test as if this were WFI18 to exercise the post-reset transient functionality
+    c2x = c2 | {"correct_wfi18_transient": True, "EXCLUDE_FIRST": False}
+    c2x["IN"] = tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_18.asdf"
+    c2x["OUT"] = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_18_noexcludefirst.asdf"
+    gen_cal_image.calibrateimage(c2x)
+    c4 = c2 | {"correct_wfi18_transient": True, "EXCLUDE_FIRST": False}
+    c4["OUT"] = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noexcludefirst.asdf"
+    gen_cal_image.calibrateimage(c4)
 
     ### TESTS ON THE OUTPUTS
 
@@ -634,6 +654,17 @@ def test_run_all(tmp_path):
         print(f"mad_std((local-rc)/err)={z:.4f}, jump_local={jump_local}, jump_rc={jump_rc}")
         assert z < 0.05
         assert 100 < jump_rc < 2 * jump_local
+
+    # checks on the WFI18 version
+    with asdf.open(c4["OUT"]) as a_notr, asdf.open(c2x["OUT"]) as a_withtr:
+        diff = a_withtr["roman"]["data"] - a_notr["roman"]["data"]
+        # the 10/20/80/90th percentile wthiout correction are -0.078/-0.049/+0.029/+0.031
+        assert np.percentile(diff, 10) > -0.01
+        assert np.percentile(diff, 20) > -0.005
+        assert np.percentile(diff, 80) < 0.005
+        assert np.percentile(diff, 90) < 0.01
+        # make sure they are different!
+        assert np.percentile(diff, 80) - np.percentile(diff, 20) > 1e-4
 
     # check that we can convert the output to PDF
     visualize.visualize(
