@@ -320,6 +320,15 @@ def gencal(cstem, rng):
         }
     ).write_to(cstem + f"_saturation_{tag:s}_SCA{sca:02d}.asdf")
 
+    ### DARKDECAY
+
+    dectab = {}
+    for k in range(1, 19):
+        dectab[f"WFI{k:02d}"] = {"amplitude": 0.3 + 0.1 * np.cos(k), "time_constant": 20.0 + k}
+    asdf.AsdfFile({"roman": {"decay_table": dectab}}).write_to(
+        cstem + f"_darkdecay_{tag:s}_SCA{sca:02d}.asdf"
+    )
+
     return {}
 
 
@@ -495,6 +504,19 @@ def test_run_all(tmp_path):
         }
     )
 
+    # this will have darkdecay
+    sim_to_isim.run_config(
+        {
+            "IN": tmp_dir + f"/IN/Roman_Test_truth_{band:s}_{id}_{sca}.fits",
+            "OUT": tmp_dir + f"/OUT-L1/sim_L1withdd_{band:s}_{id:d}_{sca:d}.asdf",
+            "READS": these_reads,
+            "FITSOUT": True,
+            "CALDIR": caldir,
+            "CNORM": 1.0,
+            "SEED": 200,
+        }
+    )
+
     # copy this file into a place for WFI18 (so that we can test transient function)
     with asdf.open(tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_{sca:d}.asdf") as a:
         a["roman"]["meta"]["instrument"]["detector"] = "WFI18"
@@ -546,6 +568,14 @@ def test_run_all(tmp_path):
     c4 = c2 | {"correct_wfi18_transient": True, "EXCLUDE_FIRST": False}
     c4["OUT"] = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noexcludefirst.asdf"
     gen_cal_image.calibrateimage(c4)
+
+    # this one tests dark decay
+    # right now not actually implemented -- this shows up as a change in the "sky"
+    c2d = c2.copy()
+    c2d["CALDIR"] = c2["CALDIR"] | {"dark_decay": tmp_dir + f"/roman_wfi_darkdecay_{tag:s}_SCA{sca:02d}.asdf"}
+    c2d["IN"] = tmp_dir + f"/OUT-L1/sim_L1withdd_{band:s}_{id:d}_{sca:d}.asdf"
+    c2d["OUT"] = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_withdecay.asdf"
+    gen_cal_image.calibrateimage(c2d)
 
     ### TESTS ON THE OUTPUTS
 
@@ -665,6 +695,17 @@ def test_run_all(tmp_path):
         assert np.percentile(diff, 90) < 0.01
         # make sure they are different!
         assert np.percentile(diff, 80) - np.percentile(diff, 20) > 1e-4
+
+    # checks on the darkdecay version
+    with asdf.open(c2["OUT"]) as a_orig, asdf.open(c2d["OUT"]) as a_new:
+        diff = a_new["roman"]["data"] - a_orig["roman"]["data"]
+        diff1d = np.median(diff, axis=1)
+        assert np.all(np.abs(diff1d) < 1.0e-4)
+
+        # sky goes "up" because we are correcting a downward slope
+        skydiff = a_new["processinfo"]["skycoefs"] - a_orig["processinfo"]["skycoefs"]
+        assert 0.004 < skydiff[0] < 0.007
+        assert np.all(np.abs(skydiff[1:]) < 0.0015)
 
     # check that we can convert the output to PDF
     visualize.visualize(
