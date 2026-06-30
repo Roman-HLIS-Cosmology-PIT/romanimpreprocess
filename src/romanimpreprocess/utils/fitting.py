@@ -192,11 +192,12 @@ def jump_detect(data, rdq, pdq, meta, caldir, mylog, exclude_first=True, truncat
     # get Poisson variance information
     # first coef (units: 1/time, since K has units of 1/time)
     # this would be 1/exposure time for simple CDS
+    # K[t] is the weight for resultant t
     coef = 0.0
-    for i in range(ngrp - start):
-        coef += K[i] ** 2 * meta["tau"][i + start]
-        for j in range(i):
-            coef += 2.0 * K[i] * K[j] * meta["tbar"][j + start]
+    for i in range(start, ngrp):
+        coef += K[i] ** 2 * meta["tau"][i]
+        for j in range(start, i):
+            coef += 2.0 * K[i] * K[j] * meta["tbar"][j]
     with asdf.open(caldir["gain"]) as f:
         dvardt = np.clip(slope / np.clip(f["roman"]["data"], 1e-4, 1e4), 0.0, None)
         # Poisson variance [DN^2] per second, clipped to be positive and avoid divbyzero
@@ -337,7 +338,13 @@ def ramp_fit(data, rdq, pdq, meta, caldir, mylog, exclude_first=True):
 
     # propagate flags
     pdq2 = np.zeros_like(pdq)
-    pdq2 |= np.bitwise_or.reduce(np.where(~rdq & pixel.SATURATED, rdq, 0), axis=0)
+    dnu = np.uint32(pixel.DO_NOT_USE)
+    # OR per-group flags (e.g. JUMP_DET) from non-saturated groups into the
+    # pixel, but exclude DO_NOT_USE here: a single excluded resultant (e.g. the
+    # first, masked for exclude_first) does not mean the whole pixel is bad.
+    pdq2 |= np.bitwise_or.reduce(np.where(~rdq & pixel.SATURATED, rdq, 0), axis=0) & ~dnu
+    # do set DO_NOT_USE when _every_ group is flagged
+    pdq2 |= np.where(np.bitwise_and.reduce(rdq & pixel.DO_NOT_USE != 0, axis=0), dnu, 0).astype(np.uint32)
     # do not use pixels that saturated too fast
     pdq2 |= np.where(rdq[1 + start, :, :] & pixel.SATURATED != 0, pixel.DO_NOT_USE, 0).astype(np.uint32)
     # now fully flag the pixels that saturated
