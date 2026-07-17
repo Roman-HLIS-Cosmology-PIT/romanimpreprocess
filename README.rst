@@ -24,7 +24,7 @@ You will need to install:
   that ``romanimpreprocess`` calls directly (specifically: ``stcal`` and ``roman_datamodels``). Testing is being done with the ``romancal`` main branch,
   which is still evolving; in the event of issues with this, you could try:
 
-  .. code-block: bash
+  .. code-block:: bash
 
           pip install git+https://github.com/spacetelescope/romancal@main
 
