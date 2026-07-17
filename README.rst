@@ -21,7 +21,14 @@ You will need to install:
 
 * `romancal <https://roman-pipeline.readthedocs.io/en/latest/>`_: The Roman pipeline to go from Level 1 (uncalibrated, 3D) to Level 2 (calibrated, 2D) 
   data. *Note*: this is not used for scripts in ``romanimpreprocess.from_sim``. Note that the ``romancal`` installation also installs some other modules 
-  that ``romanimpreprocess`` calls directly (specifically: ``stcal`` and ``roman_datamodels``).
+  that ``romanimpreprocess`` calls directly (specifically: ``stcal`` and ``roman_datamodels``). Testing is being done with the ``romancal`` main branch,
+  which is still evolving; in the event of issues with this, you could try:
+
+  .. code-block: bash
+
+          pip install git+https://github.com/spacetelescope/romancal@main
+
+  (Once Roman is in routine science operations, we will replace this with a version number requirement.)
 
 The ``romanimpreprocess`` workflows do not explicitly call the Calibration Reference Data System (CRDS), although both ``romanisim`` and ``romancal`` 
 have the ability to do so. Rather, we are specifying calibration reference files in the YAML configurations. (Direct calls from ``romanimpreprocess`` to CRDS will likely be added as an option in the future.)
