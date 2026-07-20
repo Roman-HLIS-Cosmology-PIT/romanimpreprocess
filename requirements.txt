@@ -9,4 +9,4 @@ matplotlib
 romanisim
 roman_datamodels>=0.27.0
 stcal
-romancal
+romancal>=1.0.0
