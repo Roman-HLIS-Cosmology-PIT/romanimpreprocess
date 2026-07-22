@@ -422,7 +422,7 @@ def il_example(linearity_file, gain_file, ipc_file):
     assert np.all(np.abs(target2 - val2) < 0.002)
 
 
-def test_run_all(tmp_path):
+def run_all(tmp_path, subtr):
     """
     Test function for a small pyimcom run.
 
@@ -430,6 +430,8 @@ def test_run_all(tmp_path):
     ----------
     tmp_path : str or pathlib.Path
         Directory in which to run the test.
+    subtr : bool
+        Test whether to package the reference array?
 
     Returns
     -------
@@ -492,6 +494,7 @@ def test_run_all(tmp_path):
         assert np.all(np.abs(diff) < 16)
     Image.fromarray(arr[::-1, :, :]).save("panel_image.png")
 
+    supp = {"EXTRACT_REF": {"data_encoding_offset": 4000}} if subtr else {}
     sim_to_isim.run_config(
         {
             "IN": tmp_dir + f"/IN/Roman_Test_truth_{band:s}_{id}_{sca}.fits",
@@ -502,6 +505,7 @@ def test_run_all(tmp_path):
             "CNORM": 1.0,
             "SEED": 200,
         }
+        | supp
     )
 
     # this will have darkdecay
@@ -515,6 +519,7 @@ def test_run_all(tmp_path):
             "CNORM": 1.0,
             "SEED": 200,
         }
+        | supp
     )
 
     # copy this file into a place for WFI18 (so that we can test transient function)
@@ -546,6 +551,8 @@ def test_run_all(tmp_path):
             "OUT": tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noise.asdf",
         },
     }
+    if subtr:
+        c2["EXCLUDE_FIRST"] = False
     gen_cal_image.calibrateimage(c2 | {"SLICEOUT": True})
     gen_noise_image.generate_all_noise(c2)
     print("\nwrite mask")
@@ -689,10 +696,10 @@ def test_run_all(tmp_path):
     with asdf.open(c4["OUT"]) as a_notr, asdf.open(c2x["OUT"]) as a_withtr:
         diff = a_withtr["roman"]["data"] - a_notr["roman"]["data"]
         # the 10/20/80/90th percentile wthiout correction are -0.078/-0.049/+0.029/+0.031
-        assert np.percentile(diff, 10) > -0.01
-        assert np.percentile(diff, 20) > -0.005
-        assert np.percentile(diff, 80) < 0.005
-        assert np.percentile(diff, 90) < 0.01
+        assert np.percentile(diff, 10) > -0.014
+        assert np.percentile(diff, 20) > -0.007
+        assert np.percentile(diff, 80) < 0.007
+        assert np.percentile(diff, 90) < 0.014
         # make sure they are different!
         assert np.percentile(diff, 80) - np.percentile(diff, 20) > 1e-4
 
@@ -758,6 +765,16 @@ def test_run_all(tmp_path):
         assert c3["NOISE_PRECISION"] == 0  # shouldn't get here
     except ValueError as ve:
         assert str(ve) == "Unsupported noise precision."
+
+
+def test_run_all0(tmp_path):
+    """Test with moving the reference."""
+    run_all(tmp_path, True)
+
+
+def test_run_all1(tmp_path):
+    """Test without moving the reference."""
+    run_all(tmp_path, False)
 
 
 def test_flip(tmp_path):

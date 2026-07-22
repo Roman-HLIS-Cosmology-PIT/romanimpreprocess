@@ -558,7 +558,8 @@ def calibrateimage(config, verbose=True):
     # bias correction
     if "biascorr" in caldir:
         with asdf.open(caldir["biascorr"]) as f:
-            data[:, nb:-nb, nb:-nb] -= f["roman"]["data"]
+            de = np.shape(f["roman"]["data"])[0] - np.shape(data)[0]
+            data[:, nb:-nb, nb:-nb] -= f["roman"]["data"][de:]
         mylog.append("Included bias correction\n")
     else:
         mylog.append("Skipping bias correction\n")
