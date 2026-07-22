@@ -422,7 +422,7 @@ def il_example(linearity_file, gain_file, ipc_file):
     assert np.all(np.abs(target2 - val2) < 0.002)
 
 
-def run_all(tmp_path, subtr):
+def run_all(tmp_path, subtr, checkdata, cleanup=True):
     """
     Test function for a small pyimcom run.
 
@@ -432,10 +432,22 @@ def run_all(tmp_path, subtr):
         Directory in which to run the test.
     subtr : bool
         Test whether to package the reference array?
+    checkdata : dict
+        Dictionary of properties to check. Includes the keys:
+
+        - ``wfi18p1``: 1st percentile of each time slice of the L1 with WFI18 transient
+        - ``wfi18p99``: 99th percentile of each time slice of the L1 with WFI18 transient
+
+    cleanup : bool, optional
+        Whether to clean up files when done? (Only turn off if you are running on a local
+        machine to look at artifacts.)
 
     Returns
     -------
-    None
+    image : np.ndarray
+        The slope image from the default run.
+    mask : np.ndarray
+        The mask from the default run.
 
     """
 
@@ -693,6 +705,14 @@ def run_all(tmp_path, subtr):
         assert 100 < jump_rc < 2 * jump_local
 
     # checks on the WFI18 version
+    with asdf.open(c2x["IN"]) as _a:
+        assert np.allclose(
+            np.percentile(_a["roman"]["data"], 99, axis=(-2, -1)), checkdata["wfi18p99"], atol=2.2, rtol=0.0
+        )
+        assert np.allclose(
+            np.percentile(_a["roman"]["data"], 1, axis=(-2, -1)), checkdata["wfi18p1"], atol=2.2, rtol=0.0
+        )
+
     with asdf.open(c4["OUT"]) as a_notr, asdf.open(c2x["OUT"]) as a_withtr:
         diff = a_withtr["roman"]["data"] - a_notr["roman"]["data"]
         # the 10/20/80/90th percentile wthiout correction are -0.078/-0.049/+0.029/+0.031
@@ -766,15 +786,92 @@ def run_all(tmp_path, subtr):
     except ValueError as ve:
         assert str(ve) == "Unsupported noise precision."
 
+    with fits.open(str(tmp_path) + "/OUT-L2/sim_L2_F184_163_4_asdf_to.fits") as f:
+        image = np.copy(f[0].data)
+        mask = np.copy(f[1].data)
 
-def test_run_all0(tmp_path):
-    """Test with moving the reference."""
-    run_all(tmp_path, True)
+    if cleanup:
+        for rf in [
+            "out_im1.pdf",
+            "roman_wfi_linearitylegendre_TESTONLY_SCA04.asdf",
+            "temp_F184_163_4_L2.asdf",
+            "roman_wfi_biascorr_TESTONLY_SCA04.asdf",
+            "roman_wfi_mask_TESTONLY_SCA04.asdf",
+            "temp_F184_163_4_refL2_asdf_to.fits",
+            "roman_wfi_dark_TESTONLY_SCA04.asdf",
+            "roman_wfi_pflat_TESTONLY_SCA04.asdf",
+            "temp_F184_163_4_refL2.asdf",
+            "roman_wfi_darkdecay_TESTONLY_SCA04.asdf",
+            "roman_wfi_read_TESTONLY_SCA04.asdf",
+            "temp_F184_163_4.asdf",
+            "roman_wfi_gain_TESTONLY_SCA04.asdf",
+            "roman_wfi_saturation_TESTONLY_SCA04.asdf",
+            "roman_wfi_ipc4d_TESTONLY_SCA04.asdf",
+            "temp_F184_163_4_L2_asdf_to.fits",
+        ]:
+            os.remove(tmp_path / rf)
+        for rf in ["Roman_Test_truth_F184_163_4.fits"]:
+            os.remove(tmp_path / f"IN/{rf}")
+        for rf in [
+            "sim_L1_F184_163_18.asdf",
+            "sim_L1_F184_163_4.asdf",
+            "sim_L1withdd_F184_163_4.asdf",
+            "sim_L1_F184_163_4_asdf_to.fits",
+            "sim_L1withdd_F184_163_4_asdf_to.fits",
+            "sim_L1_F184_163_4_asdf_wcshead.txt",
+            "sim_L1withdd_F184_163_4_asdf_wcshead.txt",
+        ]:
+            os.remove(tmp_path / f"OUT-L1/{rf}")
+        for rf in [
+            "sim_L2_F184_163_18_noexcludefirst_asdf_to.fits",
+            "sim_L2_F184_163_4_noexcludefirst.asdf",
+            "sim_L2_F184_163_4_romancalfit_asdf_to.fits",
+            "sim_L2_F184_163_18_noexcludefirst.asdf",
+            "sim_L2_F184_163_4_noise_asdf_to.fits",
+            "sim_L2_F184_163_4_romancalfit.asdf",
+            "sim_L2_F184_163_4_asdf_to.fits",
+            "sim_L2_F184_163_4_noise.asdf",
+            "sim_L2_F184_163_4_withdecay_asdf_to.fits",
+            "sim_L2_F184_163_4_mask.fits",
+            "sim_L2_F184_163_4_noise16_asdf_to.fits",
+            "sim_L2_F184_163_4_withdecay.asdf",
+            "sim_L2_F184_163_4_noexcludefirst_asdf_to.fits",
+            "sim_L2_F184_163_4_noise16.asdf",
+            "sim_L2_F184_163_4.asdf",
+        ]:
+            os.remove(tmp_path / f"OUT-L2/{rf}")
+
+    return image, mask
 
 
-def test_run_all1(tmp_path):
-    """Test without moving the reference."""
-    run_all(tmp_path, False)
+def test_run_all(tmp_path):
+    """Main workflow test."""
+
+    # Test with moving the reference.
+    im0, mask0 = run_all(
+        tmp_path,
+        True,
+        {
+            "wfi18p99": np.array([4030.0, 4034.0, 4044.0, 4060.0, 4068.0]),
+            "wfi18p1": np.array([3946.0, 3979.0, 3984.0, 3984.0, 3982.0]),
+        },
+    )
+
+    # Test without moving the reference.
+    im1, mask1 = run_all(
+        tmp_path,
+        False,
+        {
+            "wfi18p99": np.array([5925.0, 5927.0, 5931.0, 5937.0, 5944.0, 5947.0]),
+            "wfi18p1": np.array([4780.0, 4785.0, 4788.0, 4793.0, 4796.0, 4797.0]),
+        },
+    )
+
+    # Check that we got the same answer.
+    thresh = 2  # want to allow the occasional floating point moves over a flag boundary.
+    assert np.count_nonzero(mask0 != mask1) <= thresh
+    err = np.abs(im1 - im0) / (1.0 + np.abs(im1))
+    assert np.count_nonzero(err > 3.0e-4) <= thresh
 
 
 def test_flip(tmp_path):
