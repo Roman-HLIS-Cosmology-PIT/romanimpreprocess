@@ -101,9 +101,14 @@ def make_noise_cube(config, rng):
             # if not adding, clear the input image
             if "a" not in noiseflags:
                 with asdf.open(config["CALDIR"]["dark"]) as fb:
-                    mytree["roman"]["data"] = np.copy(fb["roman"]["data"]).astype(
-                        mytree["roman"]["data"].dtype
-                    )
+                    de = np.shape(fb["roman"]["data"])[0] - np.shape(mytree["roman"]["data"])[0]
+                    mytree["roman"]["data"] = fb["roman"]["data"].astype(mytree["roman"]["data"].dtype)
+
+                    # if de is 1, then the first slice is a reference read that we're not using
+                    # 0 otherwise
+                    if de not in [0, 1]:
+                        raise ValueError("Dark date cube has the wrong shape.")
+                    mytree["roman"]["data"] = mytree["roman"]["data"][de:, :, :]
 
                 # write this to a file and calibrate it
                 with asdf.AsdfFile(mytree) as af, open(config["NOISE"]["TEMP"], "wb") as f:
@@ -115,7 +120,7 @@ def make_noise_cube(config, rng):
 
             # white noise
             for k in range(len(mytree["roman"]["meta"]["exposure"]["read_pattern"])):
-                resultants = np.copy(mytree["roman"]["data"][k, nb:-nb, nb:-nb].astype(np.float32))
+                resultants = mytree["roman"]["data"][k, nb:-nb, nb:-nb].astype(np.float32)
                 im = np.zeros_like(resultants)
                 galsim.GaussianDeviate(rng).generate(im)
                 with asdf.open(config["CALDIR"]["read"]) as fr:

@@ -1,16 +1,20 @@
 Detailed algorithms for generating L1 images
-##################################################
+############################################
 
 This page describes in a bit more detail how ``sim_to_isim`` works.
 
 Usage
-====================================
+=====
 
-The ``sim_to_isim.py`` script generates simulated Roman ASDF images from the OpenUniverse simulations (we may add more input formats in the future). Its calling format is::
+The ``sim_to_isim.py`` script generates simulated Roman ASDF images from the OpenUniverse simulations (we may add more input formats in the future). Its calling format is:
+
+.. code-block:: bash
 
   python3 -m romanimpreprocess.from_sim.sim_to_isim config.yaml
 
-You can also call this from python using the code::
+You can also call this from python using the code:
+
+.. code-block:: python
 
     import yaml
     with open('config.yaml') as f:
@@ -20,12 +24,12 @@ You can also call this from python using the code::
 which allows you to make lots of images as needed.
 
 Interaction between the codes
----------------------------------------
+-----------------------------
 
 The code calls ``romanisim``, but it passes some packaged algorithms into it, so it is more forming a combined workflow than acting as a wrapper. Aside from the need to add the read pattern to ``parameters.read_pattern`` (which is unavoidable), we were able to do this without any monkey-patching (because I dislike monkey-patching).
 
 Fields in the configuration
-====================================
+===========================
 
 The configuration is a Python dictionary (normally read from a YAML file).
 
@@ -35,9 +39,11 @@ The configuration is a Python dictionary (normally read from a YAML file).
 
 * ``OUT``: The output Level 1 ASDF image. Must end in ``.asdf``.
 
-* ``READS``: The read pattern. This is a flattened list of an even number of integers, for example the pattern::
+* ``READS``: The read pattern. This is a flattened list of an even number of integers, for example the pattern:
 
-    READS: [0, 1, 1, 2, 2, 4, 4, 10, 10, 26, 26, 32, 32, 34, 34, 35]
+  .. code-block:: yaml
+
+      READS: [0, 1, 1, 2, 2, 4, 4, 10, 10, 26, 26, 32, 32, 34, 34, 35]
 
   means that the groups that are being averaged are ``range(0,1)``, ``range(1,2)``, ``range(2,4)``, ``range(4,10)``, etc. If every read is being used in a group average, then the second integer in each pair is the same as the first one of the next pair. If there are dropped frames, then this won't be the case, e.g., if we had written ``...10, 10, 25, 26, 32, ...`` instead, then frame 25 would be dropped.
 
@@ -53,13 +59,21 @@ The configuration is a Python dictionary (normally read from a YAML file).
 
 * ``NO_AMP33``: If True, then does not try to read reference output information from the calibration files.
 
+* ``EXTRACT_REF``: If provided, you can include an encoding offset in the L1 file:
+
+  .. code-block:: yaml
+
+    "EXTRACT_REF": {"data_encoding_offset": 4000}
+
+  Such an offset is not used for the WFI TVAC data, but is planned for the flight data.
+
 Calibration file requirements
-====================================
+=============================
 
 The following ASDF calibration files are required if ``CALDIR`` is set (or optional if indicated). Each one has a format and units:
 
 CALDIR['dark']
------------------------------------------
+--------------
 
 Dark data. There are several arrays in it:
 
@@ -72,7 +86,7 @@ Dark data. There are several arrays in it:
   The dark current map. The reference pixel data in this array is ignored.
 
 CALDIR['gain'] 
--------------------
+--------------
 
 The gain array. The tree contains:
 
@@ -81,7 +95,7 @@ The gain array. The tree contains:
   The per-pixel gain (a constant array can be provided if per-pixel gain is not available). The reference pixel data in this array is ignored.
 
 CALDIR['ipc4d'] 
--------------------
+---------------
 
 The IPC kernel.
 
@@ -91,7 +105,7 @@ The IPC kernel.
 
 
 CALDIR['linearitylegendre']
---------------------------------
+---------------------------
 
 The linearity data. The tree contains:
 
@@ -101,7 +115,9 @@ The linearity data. The tree contains:
 
 * ``['roman']['Smax']``: 4096 x 4096, float32, DN:
 
-  This is a cube of Legendre polynomial coefficients and the bounds. The relation between raw signal (S) and linearized signal (Slin) in pixel (x,y) is via a two-step transformation::
+  This is a cube of Legendre polynomial coefficients and the bounds. The relation between raw signal (S) and linearized signal (Slin) in pixel (x,y) is via a two-step transformation:
+
+  .. code-block:: python
 
     # re-scale S into the domain of the Legendre polynomials:
     # S=Smin --> z=-1
@@ -122,7 +138,7 @@ The linearity data. The tree contains:
   The signal in DN that corresponds to "0 e in well". Note that unlike a CCD, where a charge packet in the silicon may truly be "empty", in Roman detectors there are always many free charges on the p-type side of the photodiode (the exact number can't be measured) and so charge in the well is always relative to some level.
 
 CALDIR['read'] 
--------------------
+--------------
 
 The read noise cube. The tree contains:
 
@@ -150,7 +166,7 @@ The read noise cube. The tree contains:
 
 
 CALDIR['biascorr'] (optional)
------------------------------------------
+-----------------------------
 
 If provided, this file contains information on how to correct dark current + non-linearity information to get the correct median level. It should contain:
 
@@ -163,14 +179,16 @@ If provided, this file contains information on how to correct dark current + non
   The time from reset to the reference level (i.e., what corresponds to "0 e in the well").
 
 Code structure
-=======================
+==============
 
 The ``Image2D`` class is the main object you will encounter. 
 
 Initialization
--------------------
+--------------
 
-``Image2D`` can be initialized from a simulated image::
+``Image2D`` can be initialized from a simulated image:
+
+.. code-block:: python
 
     x = Image2D('anlsim', fname='Roman_WAS_truth_F184_14747_10.fits')
 
@@ -179,9 +197,11 @@ The ``__init__`` function takes a file type, currently ``'anlsim'``, but which i
 *Comment:* The OpenUniverse 2024 simulation is in the Detector frame. The flip to convert to the Science frame is performed in the initialization function.
 
 Simulation
------------------------------
+----------
 
-The Roman images can be simulated using the ``simulate`` method::
+The Roman images can be simulated using the ``simulate`` method:
+
+.. code-block::python
 
     x.simulate(use_read_pattern, caldir)
 
@@ -194,7 +214,7 @@ Either way, this process only produces the ngroup x 4088 x 4088 cube of the scie
 A simulated slope fit and L2 image cube is generated (following the workflow in ``romanisim``), but we're not doing anything with those at the moment.
 
 Writing files
--------------------
+-------------
 
 The Level 1 data file is written to ASDF with the call::
 
@@ -203,19 +223,19 @@ The Level 1 data file is written to ASDF with the call::
 We also write the header (with flipping of the WCS if needed) with the suffix ``_asdf_wcshead.txt``, and if ``FITSOUT`` is true then we write the data cube with the suffix ``_asdf_to.fits``.
 
 Methodology
-=======================
+===========
 
 The ordering of operations assumed here is as follows.
 
 Reset
----------
+-----
 
 We implement a Gaussian reset noise.
 
 The mean reset level is set to a negative number of elementary charges so that it will integrate up to 0 on average in the dark at the time used to compute the "0 e" level (that would usually be the first stable frame after the reset, but it doesn't have to be).
 
 Charge accumulation
------------------------------------
+-------------------
 
 Accumulation of signal into pixels (in elementary charges, e) is simulated first. Right now this is a Poissonian process.
 
@@ -226,41 +246,41 @@ Accumulation of signal into pixels (in elementary charges, e) is simulated first
 * The brighter-fatter effect and quantum yield are not yet implemented.
 
 Inter-pixel capacitance (IPC)
-----------------------------------
+-----------------------------
 
 IPC is implemented next, using the per-pixel map (although in practice that map might be constant in super-pixels).
 
 *Comment:* It is not clear that it is entirely distinct from nonlinearity and gain, since some contributions to the nonlinearity and gain happen in the pixel and thus are "simultaneous" with IPC: the collected charges and even the boundary of the depletion zone are moving around to minimize free energy, and IPC means that this process is not independent across pixels). But because of how IPC and gain are measured, we do them before non-linearity.
 
 Gain
----------
+----
 
 By definition, this is a simple conversion from elementary charges to linearized digital numbers ("DN_lin") in the same pixel.
 
 Non-linearity
------------------------
+-------------
 
 The non-linearity curve is computed using the Legendre polynomial cube. Pixels that go up to Smax (saturation level) will be clipped.
 
 Uncorrelated read noise
----------------------------
+-----------------------
 
 The uncorrelated read noise term is added next. This is Gaussian white noise.
 
 Bias
----------------------
+----
 
 A bias (from ``biascorr``) can be added to make sure that the median dark comes out right. In building the calibration files, this is really computed from the median dark minus what you get by running the dark current through the non-linearity curve, so it accomplishes this by construction.
 
 The ``biascorr`` is usually small (except in the read-reset frame), but this step does make the hot pixels appear a bit more realistic (e.g., in cases where they are initially hot but then the dark current decreases before they saturate). But I don't think we really want to use the hot pixels for science so this aspect may not matter. Similarly, I don't think we want to use the read-reset frame directly for science, although it probably contains some useful calibration information.
 
 Reference pixels
---------------------
+----------------
 
 The reference pixel padding is done next. These pixels have reset and read noise, but don't respond to the sky and are not included in the IPC calculation (since empirically we don't see IPC involving the edge pixels).
 
 Correlated read noise
-----------------------------
+---------------------
 
 The correlated read noise (both 1/f components that are common across all channels and independent) are generated by FFT'ing a Gaussian random vector whose length is twice the readout.
 

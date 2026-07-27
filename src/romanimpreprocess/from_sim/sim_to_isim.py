@@ -348,7 +348,8 @@ def fill_in_refdata_and_1f(im, caldir, rng, tij, fill_in_banding=True, amp33=Non
     noise[:-1, :, :] += noise[-1, :, :][None, :, :]  # adds the reset noise to the reference pixels
 
     with asdf.open(caldir["dark"]) as f:
-        noise[:-1, :, :] += np.copy(f["roman"]["data"])
+        de = np.shape(f["roman"]["data"])[0] - ngrp
+        noise[:-1, :, :] += np.copy(f["roman"]["data"][de:, :, :])
 
     # what we have above is a dark image, but we want to fill in the
     # active pixels with the data from im
@@ -706,6 +707,28 @@ class Image2D:
                 amp33=amp33struct,
             )
 
+        # move reference read, if requested
+        if "EXTRACT_REF" in config:
+            data_encoding_offset = int(config["EXTRACT_REF"].get("data_encoding_offset", 0))
+            nresultants = im["meta"]["exposure"]["nresultants"]  # won't change this, but want shorthand
+            im["meta"]["instrument"]["data_encoding_offset"] = data_encoding_offset
+            im["meta"]["exposure"]["read_pattern"] = im["meta"]["exposure"]["read_pattern"][1:]
+            im["reference_read"] = np.copy(im["data"][0])
+            modref = im["data"][0].astype(np.int32) - data_encoding_offset
+            for k in range(1, nresultants):
+                im["data"][k, :, :] = np.clip(im["data"][k, :, :].astype(np.int32) - modref, 0, 65535).astype(
+                    np.uint16
+                )
+            im["data"] = im["data"][1:, :, :]
+            if caldir is not None and "NO_AMP33" not in caldir:
+                im["reference_amp33"] = np.copy(im["amp33"][0])
+                modref = im["amp33"][0].astype(np.int32) - data_encoding_offset
+                for k in range(1, nresultants):
+                    im["amp33"][k, :, :] = np.clip(
+                        im["amp33"][k, :, :].astype(np.int32) - modref, 0, 65535
+                    ).astype(np.uint16)
+                im["amp33"] = im["amp33"][1:, :, :]
+
         # Create metadata for simulation parameter
         romanisimdict = {"version": rstversion}
         # for storage reasons, I took out all the large metadata arrays in romanisimdict
@@ -966,8 +989,9 @@ def run_config(config):
     # also write the FITS file for viewing
     if "FITSOUT" in config:
         if config["FITSOUT"]:
-            image_out = np.zeros((ng, pars.nside, pars.nside_augmented), dtype=np.uint16)
             with asdf.open(config["OUT"]) as f:
+                ng2 = np.shape(f["roman"]["data"])[0]
+                image_out = np.zeros((ng2, pars.nside, pars.nside_augmented), dtype=np.uint16)
                 image_out[:, :, : pars.nside] = f["roman"]["data"]
                 image_out[:, :, pars.nside :] = f["roman"]["amp33"]
                 fits.PrimaryHDU(image_out).writeto(config["OUT"][:-5] + "_asdf_to.fits", overwrite=True)
