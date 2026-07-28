@@ -6,7 +6,7 @@ import asdf
 import numpy as np
 
 # SCA reference positions
-sca_ref_pos = np.ndarray(
+sca_ref_pos = np.array(
     [
         [-0.06784, -0.03653],
         [-0.0678, 0.10972],
@@ -84,25 +84,25 @@ def get_orientation(afile):
     offset = 0.496 * degree
 
     # BST +Z = telescope boresight
-    # BST +Y = toward NCP
-    roll = 120 * degree + roll_ref
+    # BST -X = toward NCP
+    roll = -150.0 * degree + roll_ref
 
     # J2000 <- BST <- INT <- FPA
     rmat = (
-        np.array([[np.cos(ra_ref), np.sin(ra_ref), 0], [-np.sin(ra_ref), np.cos(ra_ref), 0], [0, 0, 1]])
+        np.array([[np.cos(ra_ref), -np.sin(ra_ref), 0], [np.sin(ra_ref), np.cos(ra_ref), 0], [0, 0, 1]])
         @ np.array([[np.sin(dec_ref), 0, np.cos(dec_ref)], [0, 1, 0], [-np.cos(dec_ref), 0, np.sin(dec_ref)]])
-        @ np.array([[np.cos(roll), -np.sin(roll), 0], [np.sin(roll), np.cos(roll), 0], [0, 0, 1]])
+        @ np.array([[np.cos(roll), np.sin(roll), 0], [-np.sin(roll), np.cos(roll), 0], [0, 0, 1]])
         @ np.array([[1, 0, 0], [0, -np.cos(offset), np.sin(offset)], [0, -np.sin(offset), -np.cos(offset)]])
     )
 
     # field center
-    ra = np.arctan2(-rmat[1, 2], -rmat[0, 2]) / degree + 180.0
-    dec = np.arctan2(rmat[2, 2], np.hypot(rmat[0, 2], rmat[1, 2])) / degree
+    ra = np.arctan2(rmat[1, 2], rmat[0, 2]) / degree + 180.0
+    dec = np.arctan2(-rmat[2, 2], np.hypot(rmat[0, 2], rmat[1, 2])) / degree
 
     # SCA center positions
     coords = np.zeros((3, 19))  # add one position for the FPA +Y direction
-    coords[:2, :18] = sca_ref_pos * degree / scale_factor
-    coords[:2, :18] *= np.sinc(np.hypot(coords[0, :18], coords[1, :18]) / np.pi)[:, None]
+    coords[:2, :18] = sca_ref_pos.T * degree / scale_factor
+    coords[:2, :18] *= np.sinc(np.hypot(coords[0, :18], coords[1, :18]) / np.pi)[None, :]
     coords[2, :18] = -np.sqrt(1.0 - coords[0, :18] ** 2 - coords[1, :18] ** 2)
     coords[1, 18] = 1.0
     coords_j2000 = rmat @ coords
