@@ -32,9 +32,7 @@ echo "--- Environment variable ---"
 echo "USE_SCA" $USE_SCA
 echo "READ_PATTERN_NAME" $READ_PATTERN_NAME
 echo "TAG" $TAG
-echo "MAST_DL_DIR" $DMAST_DL_DIR
-echo "DARK_DIR" $DARK_DIR
-echo "FLAT_DIR" $FLAT_DIR
+echo "MAST_DL_DIR" $MAST_DL_DIR
 echo "TARGET_DIR" $TARGET_DIR
 echo "SCRIPT_DIR" $SCRIPT_DIR
 echo " "
