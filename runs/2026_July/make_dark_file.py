@@ -63,7 +63,7 @@ for ig in range(ng):
                 darkave = np.zeros((ng, ny, nx), dtype=np.float32)
                 tempave = np.zeros((Nfile, ny, nx), dtype=np.float32)
             tempave[j, :, :] = np.mean(
-                f[1].data[0, use_read_pattern[ig][0] : use_read_pattern[ig][-1] + 1, :, :].astype(np.float32),
+                f[0].data[1, use_read_pattern[ig][0] : use_read_pattern[ig][-1] + 1, :, :].astype(np.float32),
                 axis=0,
             )
     darkave[ig, :, :] = np.nanmean(sigma_clip(tempave, sigma=3, axis=0, masked=False), axis=0)
