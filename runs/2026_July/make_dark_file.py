@@ -57,8 +57,8 @@ for ig in range(ng):
             sys.stdout.flush()
         with fits.open(noisefiles[j]) as f:
             if ig == 0 and j == 0:
-                nx = f[1].header["NAXIS1"]
-                ny = f[1].header["NAXIS2"]
+                nx = f[0].header["NAXIS1"]
+                ny = f[0].header["NAXIS2"]
                 # tempave is going to be huge! about 7 GB for 100 darks
                 darkave = np.zeros((ng, ny, nx), dtype=np.float32)
                 tempave = np.zeros((Nfile, ny, nx), dtype=np.float32)
