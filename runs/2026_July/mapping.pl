@@ -15,9 +15,8 @@ use IO::Handle;
 $i=0;
 $sca = $ENV{'USE_SCA'};
 $c = 'WFI'.$ENV{'USE_SCA'};
-for $line (split "\n", `cat download_wfi06.txt`) {
+for $line (split "\n", `cat download_wfi$sca.txt`) {
     $l2 = $line;
-    $l2 =~ s/WFI06/$c/g;
     $d = (split ' ', $l2)[-1];
     $files[$i] = $d;
     $i++;
