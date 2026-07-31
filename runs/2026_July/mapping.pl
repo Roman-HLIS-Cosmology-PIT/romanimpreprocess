@@ -15,7 +15,7 @@ use IO::Handle;
 $i=0;
 $sca = $ENV{'USE_SCA'};
 $c = 'WFI'.$ENV{'USE_SCA'};
-for $line (split "\n", `cat download_wfi$sca.txt`) {
+for $line (split "\n", `sort download_wfi$sca.txt`) {
     $l2 = $line;
     $d = (split ' ', $l2)[-1];
     $files[$i] = $d;
@@ -53,11 +53,11 @@ for $i (0..199) {
     if ($i>=100) {
         $target = $targetdir.(sprintf "/99999999_SCA%02d_Noise_%03d.fits", $sca, $i-99);
     }
-    elsif ($i>=50) {
-        $target = $targetdir.(sprintf "/99999999_SCA%02d_LoFlat_%03d.fits", $sca, $i-49);
+    elsif ($i<50) {
+        $target = $targetdir.(sprintf "/99999999_SCA%02d_Flat_%03d.fits", $sca, $i+1);
     }
     else {
-        $target = $targetdir.(sprintf "/99999999_SCA%02d_Flat_%03d.fits", $sca, $i+1);
+        $target = $targetdir.(sprintf "/99999999_SCA%02d_LoFlat_%03d.fits", $sca, $i-49);
     }
     $ipt = $ENV{'TMPDIR'}."/$files[$i]";
     $ipt =~ s/\.asdf$/_asdf_to\.fits/;

@@ -95,7 +95,6 @@ echo "---" > settings_$READ_PATTERN_NAME.yaml
 echo "READS: [0, 1, 1, 2, 2, 4, 4, 10, 10, 26, 26, 32, 32, 34, 34, 35]" >> settings_$READ_PATTERN_NAME.yaml
 echo "..." >> settings_$READ_PATTERN_NAME.yaml
 python make_dark_file.py $READ_PATTERN_NAME $TARGET_DIR/99999999_SCA$USE_SCA\_Noise_001.fits $TARGET_DIR/noise_SCA$USE_SCA.fits $USE_SCA $TARGET_DIR/roman_wfi_dark_$TAG\_SCA$USE_SCA.asdf
-rm settings_$READ_PATTERN_NAME.yaml
 
 # build the linearity files
 perl write_linearity_config.pl $TARGET_DIR $USE_SCA $TAG > linearity_pars_$USE_SCA.json
@@ -104,3 +103,4 @@ python -m solid_waffle.linearity_run $SCRIPT_DIR/linearity_pars_$USE_SCA.json
 # post-process these to get pflat and saturation
 python postprocess_calfiles.py $TARGET_DIR/roman_wfi_linearitylegendre_$TAG\_SCA$USE_SCA.asdf $USE_SCA $READ_PATTERN_NAME
 python makemask.py $TARGET_DIR/roman_wfi_mask_$TAG\_SCA$USE_SCA.asdf $USE_SCA $READ_PATTERN_NAME
+rm settings_$READ_PATTERN_NAME.yaml
