@@ -173,3 +173,5 @@ build new calibration files; but it deals with specific input formats that may c
 fully general):
 
 * Summer 2025 run (with FPT tests + OpenUniverse): `here <runs/summer2025run/>`_.
+
+* July 2026 run: `here <runs/2026_July/>`_.
