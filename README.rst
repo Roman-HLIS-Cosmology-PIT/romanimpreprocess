@@ -1,4 +1,8 @@
-.. image:: https://codecov.io/gh/Roman-HLIS-Cosmology-PIT/romanimpreprocess/graph/badge.svg?token=W3HE23HFVG
+|badge1| |badge2|
+
+.. |badge1| image:: https://codecov.io/gh/Roman-HLIS-Cosmology-PIT/romanimpreprocess/graph/badge.svg
+
+.. |badge2| image:: https://github.com/Roman-HLIS-Cosmology-PIT/romanimpreprocess/actions/workflows/smoke-test.yml/badge.svg
 
 HLWAS Image Preprocessing Tools
 ###############################
