@@ -18,12 +18,11 @@ calibrateimage
 
 """
 
+import importlib.metadata
 import sys
 import warnings  # noqa: F401
 
 import asdf
-
-# not actually doing a simulation but needed to pass around the WCS types
 import galsim  # noqa: F401
 import numpy as np
 import yaml
@@ -678,6 +677,11 @@ def calibrateimage(config, verbose=True):
     #                                                    but it isn't essential
     oututils.add_in_provenance(im2, "gen_cal_image")
 
+    # Build package version table
+    pkg = {}
+    for dv in importlib.metadata.distributions():
+        pkg[dv.metadata["Name"]] = dv.version
+
     # process information specific to this code
     processinfo = {
         "medsky": medsky,
@@ -690,6 +694,7 @@ def calibrateimage(config, verbose=True):
         "config": config,
         "log": mylog.output,
         "exclude_first": config.get("EXCLUDE_FIRST", True),
+        "romanimpreprocess_env": pkg,
     }
 
     # this is for getting the ramp data so we know which range was used
