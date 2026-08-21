@@ -1,28 +1,36 @@
 Detailed algorithms for converting L1 to L2 images
-########################################################
+##################################################
 
 This page describes in a bit more detail how ``gen_cal_image`` works.
 
 Usage
-====================================
+=====
 
-The ``gen_cal_image.py`` script converts L1 to L2 images. It carries out the pipeline steps associated with the image processing (linearity, ramp fitting and jump detection, IPC, dark, flat). Its calling format is::
+The ``gen_cal_image.py`` script converts L1 to L2 images. It carries out the pipeline steps associated with the image processing (linearity, ramp fitting and jump detection, IPC, dark, flat). Its calling format is:
+
+.. code-block:: bash
 
   python3 -m romanimpreprocess.L1_to_L2.gen_cal_image config.yaml
 
-or if you want to also generate noise images::
+or if you want to also generate noise images:
+
+.. code-block:: bash
 
   # this calls gen_cal_image internally, so you don't need that as an extra step
   python3 -m romanimpreprocess.L1_to_L2.gen_noise_image romanimpreprocess/sample_Step1.yaml
 
-You can also call this from python using the code::
+You can also call this from python using the code:
+
+.. code-block:: python
 
     import yaml
     with open('config.yaml') as f:
         config = yaml.safe_load(f)
     romanimpreprocess.L1_to_L2.gen_cal_image.calibrateimage(config)
 
-or to generate noise images as well::
+or to generate noise images as well:
+
+.. code-block:: python 
 
     import yaml
     with open('config.yaml') as f:
@@ -33,12 +41,14 @@ or to generate noise images as well::
 which allows you to process many images in a scripted way.
 
 Interaction between the codes
----------------------------------------
+-----------------------------
 
 In its present form, the code does not wrap romancal (the original intention) but rather runs some of the key algorithms itself (calling stcal where appropriate). It also makes use of the utilities in roman_datamodels.
 
+The output data file is compatible with the Roman Level 2 schema. It does, however, also have a additional ``processinfo`` field with ``romanimpreprocess``-specific information. Some of this is used later in the PIT pipeline (particularly ``roman-hlis-l2-driver``).
+
 Fields in the configuration
-====================================
+===========================
 
 The configuration is a Python dictionary (normally read from a YAML file).
 
@@ -86,7 +96,9 @@ The configuration is a Python dictionary (normally read from a YAML file).
 
 - ``SATURATION_BACKUP``: The number of frames to "back up" when checking for saturation. This will probably be 0 (SOC) or 1 (PIT) though any non-negative integer is valid. The frame backup parameter defaults to 1 in the saturation check if not included here.
 
-A sample file would be::
+A sample file would be:
+
+.. code-block:: yaml
 
     ---
     # Input file
@@ -122,7 +134,7 @@ A sample file would be::
     ...
 
 Summary of algorithms
-=====================================
+=====================
 
 The principal algorithms used in this version of the code are as follows. Some implementations are "Internal" (in ``gen_cal_image``). Others point to other files in this repository (as indicated) or are called from external libraries (e.g., stcal). Note that some choices are provisional and will change as better algorithms become available.
 
@@ -174,9 +186,11 @@ Some steps are not carried out in this code:
 * absolute calibration (i.e., from flattened DN_lin/s to MJy/sr)
 
 Noise realizations
-######################
+##################
 
-You can generate simulated noise realizations *as well as* the calibrated images with the ``gen_noise_image`` script. For example::
+You can generate simulated noise realizations *as well as* the calibrated images with the ``gen_noise_image`` script. For example:
+
+.. code-block:: python
 
     from romanimpreprocess.L1_to_L2 import gen_noise_image
     with open('config.yaml') as f:
@@ -186,7 +200,9 @@ You can generate simulated noise realizations *as well as* the calibrated images
 
 Here ``'SLICEOUT':True`` tells ``calibrateimage`` to save the information on which resultants are used to construct the slope image, so that ``generate_all_noise`` can pull from the correct distribution.
 
-You can tell ``gen_noise_image`` which noise realizations to generate by putting a ``NOISE`` block in the configuration file::
+You can tell ``gen_noise_image`` which noise realizations to generate by putting a ``NOISE`` block in the configuration file:
+
+.. code-block:: yaml
 
   NOISE:
     LAYER: ['RP', 'RS2']
@@ -205,7 +221,7 @@ Here:
 * ``OUT`` is the location of the output file.
 
 Noise layer code system
-=========================
+=======================
 
 The noise layer string (e.g., ``'RS2'``) indicates which noise elements should be included. Each command begins with a capital letter indicating the type of command, and in some cases is followed by other characters (lower case letters, numbers, underscores) that provide arguments.
 
@@ -229,11 +245,15 @@ The types of commands are:
 
 * ``S``: Perform sky subtraction on the noise realizations of the given order, e.g., ``'S2'`` removes a 2nd order polynomial from the noise realization, ``'S0'`` removes a constant, etc.
 
-* ``C``: Comment (does not affect the noise generated). This can also be used to give statistically equivalent noise layers unique designations so that they can be referred to later, e.g., by PyIMCOM. So if you wanted 3 read noise layers with a constant subtracted off, you could write::
+* ``C``: Comment (does not affect the noise generated). This can also be used to give statistically equivalent noise layers unique designations so that they can be referred to later, e.g., by PyIMCOM. So if you wanted 3 read noise layers with a constant subtracted off, you could write:
 
-    LAYER: ['RS0C0', 'RS0C1', 'RS0C2']
+  .. code-block:: yaml
 
-  Of course, since this is a comment, you could also name them however you want as long as you don't use capital letters::
+      LAYER: ['RS0C0', 'RS0C1', 'RS0C2']
 
-    LAYER: ['RS0Cmickey_mouse', 'RS0Cdonald_duck', 'RS0Cgoofy']
+  Of course, since this is a comment, you could also name them however you want as long as you don't use capital letters:
+
+  .. code-block:: yaml
+
+      LAYER: ['RS0Cmickey_mouse', 'RS0Cdonald_duck', 'RS0Cgoofy']
 

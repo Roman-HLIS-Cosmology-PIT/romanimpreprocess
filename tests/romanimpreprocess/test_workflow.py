@@ -657,6 +657,9 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
         print("MAX", np.amax(np.abs(skyresid)))
         assert np.amax(np.abs(skyresid)) < 1e-3
 
+        print(a["processinfo"]["romanimpreprocess_env"])
+        assert "." in a["processinfo"]["romanimpreprocess_env"]["romanimpreprocess"]
+
     hisignal = np.logical_and(isGood, expected_signal > 5.0)
     print(isGood, np.mean(isGood.astype(np.float32)), "hisig =", np.count_nonzero(hisignal))
 
