@@ -245,11 +245,15 @@ The types of commands are:
 
 * ``S``: Perform sky subtraction on the noise realizations of the given order, e.g., ``'S2'`` removes a 2nd order polynomial from the noise realization, ``'S0'`` removes a constant, etc.
 
-* ``C``: Comment (does not affect the noise generated). This can also be used to give statistically equivalent noise layers unique designations so that they can be referred to later, e.g., by PyIMCOM. So if you wanted 3 read noise layers with a constant subtracted off, you could write::
+* ``C``: Comment (does not affect the noise generated). This can also be used to give statistically equivalent noise layers unique designations so that they can be referred to later, e.g., by PyIMCOM. So if you wanted 3 read noise layers with a constant subtracted off, you could write:
 
-    LAYER: ['RS0C0', 'RS0C1', 'RS0C2']
+  .. code-block:: yaml
 
-  Of course, since this is a comment, you could also name them however you want as long as you don't use capital letters::
+      LAYER: ['RS0C0', 'RS0C1', 'RS0C2']
 
-    LAYER: ['RS0Cmickey_mouse', 'RS0Cdonald_duck', 'RS0Cgoofy']
+  Of course, since this is a comment, you could also name them however you want as long as you don't use capital letters:
+
+  .. code-block:: yaml
+
+      LAYER: ['RS0Cmickey_mouse', 'RS0Cdonald_duck', 'RS0Cgoofy']
 
