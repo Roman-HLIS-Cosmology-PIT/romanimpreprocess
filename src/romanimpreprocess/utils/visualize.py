@@ -33,7 +33,7 @@ def visualize(argv):
             "Calling format: python visualize.py infile.asdf "
             "xmin,xmax,ymin,ymax outfile.pdf [percentile_cut]"
         )
-        exit()
+        raise ValueError("Not enough arguments to visualize.")
 
     bounds = argv[2].split(",")
     xmin = int(bounds[0])
