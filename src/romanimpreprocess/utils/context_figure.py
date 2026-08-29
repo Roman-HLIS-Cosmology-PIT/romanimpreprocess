@@ -51,8 +51,4 @@ class ReportFigContext:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.mpl.use(self.env_backend)
         self.plt.switch_backend(self.env_backend)
-        if self.usetex is None:
-            if hasattr(self.plt.rcParams, "text.usetex"):  # this will always be true
-                del self.plt.rcParams["text.usetex"]
-        else:
-            self.plt.rcParams["text.usetex"] = self.usetex
+        self.plt.rcParams["text.usetex"] = self.usetex

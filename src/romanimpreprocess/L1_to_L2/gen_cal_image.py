@@ -531,7 +531,8 @@ def calibrateimage(config, verbose=True):
         # rsub = np.zeros((ngrp, pars.nside), dtype=np.float32)
         for j in range(ngrp):
             image = np.zeros((pars.nside, pars.nside_augmented), dtype=np.float32)
-            image[:, : pars.nside] = data[j, :, :] - f["roman"]["data"][j, :, :]
+            de = np.shape(f["roman"]["data"])[0] - np.shape(data)[0]
+            image[:, : pars.nside] = data[j, :, :] - f["roman"]["data"][j + de, :, :]
             with asdf.open(caldir["read"]) as fr:
                 if "amp33" in fr["roman"]:
                     image[:, -pars.channelwidth :] = amp33[j, :, :] - fr["roman"]["amp33"]["med"]
@@ -552,7 +553,7 @@ def calibrateimage(config, verbose=True):
                         )
             image = reference_subtraction.ref_subtraction_row(image, use_ref_channel=True, slope=slope)
             image = reference_subtraction.ref_subtraction_channel(image, use_ref_channel=True)
-            data[j, :, :] = image[:, : pars.nside] + f["roman"]["data"][j, :, :]
+            data[j, :, :] = image[:, : pars.nside] + f["roman"]["data"][j + de, :, :]
 
     # bias correction
     if "biascorr" in caldir:
