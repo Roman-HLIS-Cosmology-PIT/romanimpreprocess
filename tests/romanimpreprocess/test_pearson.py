@@ -12,7 +12,10 @@ and fourth moments require many more samples to converge towards the target.
 import time
 
 import numpy as np  # noqa: F401
+import pytest
 from romanimpreprocess.L1_to_L2.GalPoisson.draw_with_tilnus import (
+    _branch_masses,
+    _log_reg_lower_gamma,
     random_from_type1,
     random_from_type3,
     random_from_type4,
@@ -41,6 +44,21 @@ def _raise_if_moments_bad(mu2_mc, mu2_target, mu3_mc, mu3_target, rtol=0.5):
         )
 
 
+def test_branch_masses_exception():
+    """Test exception is raised in _branch_masses."""
+
+    with pytest.raises(ValueError):
+        _branch_masses(0)
+
+
+def test_log_reg_lower_gamma():
+    """Simple tests for _log_reg_lower_gamma."""
+
+    assert _log_reg_lower_gamma(3.0, 0.0) == -np.inf
+    assert -1.001 < _log_reg_lower_gamma(1.0, np.log(1.5)) / np.log(3.0) < -0.999
+    assert np.abs(_log_reg_lower_gamma(1.0, 1.0e8)) < 1.0e-12
+
+
 def test_pearson1():
     """
     Executes an example test case of Pearson type 1 draws, verifying
@@ -64,8 +82,10 @@ def test_pearson1():
     print(f"\nGenerating {Nsamp:,} draws from Pearson 1 sampler...")
     print("\n...")
 
+    rng = np.random.RandomState(seed=12345)
     for i in range(Nsamp):
-        p1_draws[i] = random_from_type1(tilnu_21, tilnu_31, tilnu_41, I_single, rng=None)
+        p1_draws[i] = random_from_type1(tilnu_21, tilnu_31, tilnu_41, I_single, rng=rng)
+    random_from_type1(tilnu_21, tilnu_31, tilnu_41, I_single, rng=None)
 
     print("\nDistribution sampled without issue.")
 
@@ -112,8 +132,10 @@ def test_pearson3():
 
     print(f"\nGenerating {Nsamp:,} draws from Pearson 3 sampler...")
 
+    rng = np.random.RandomState(seed=12345)
     for i in range(Nsamp):
-        p3_draws[i] = random_from_type3(tilnu_21, tilnu_31, I_single, rng=None)
+        p3_draws[i] = random_from_type3(tilnu_21, tilnu_31, I_single, rng=rng)
+    random_from_type3(tilnu_21, tilnu_31, I_single, rng=None)
 
     print("\nDistribution sampled without issue.")
 
@@ -159,8 +181,10 @@ def test_pearson4_AR():
 
     print(f"\nGenerating {Nsamp:,} draws from Pearson 4 AR sampler. This is the slowest sampler.")
 
+    rng = np.random.RandomState(seed=12345)
     for i in range(Nsamp):
-        p4_draws[i] = random_from_type4(tilnu_21, tilnu_31, tilnu_41, I_single, rng=None)
+        p4_draws[i] = random_from_type4(tilnu_21, tilnu_31, tilnu_41, I_single, rng=rng)
+    random_from_type4(tilnu_21, tilnu_31, tilnu_41, I_single, rng=None)
 
     print("\nDistribution sampled without issue.")
 
@@ -210,10 +234,12 @@ def test_pearson4_Devroye():
 
     start_time = time.time()
 
+    rng = np.random.RandomState(seed=12345)
     for i in range(Nsamp):
         if time.time() - start_time > 100:
             raise RuntimeError("Pearson 4 Devroye sampler exceeded 100 second limit")
-        p4_draws[i] = random_from_type4(tilnu_21, tilnu_31, tilnu_41, I_single, rng=None)
+        p4_draws[i] = random_from_type4(tilnu_21, tilnu_31, tilnu_41, I_single, rng=rng)
+    random_from_type4(tilnu_21, tilnu_31, tilnu_41, I_single, rng=None)
 
     print("\nDistribution sampled without issue.")
 
@@ -278,8 +304,10 @@ def test_pearson5():
     print(f"\nGenerating {Nsamp:,} draws from Pearson 5 sampler...")
     print("\n...")
 
+    rng = np.random.RandomState(seed=12345)
     for i in range(Nsamp):
-        p5_draws[i] = random_from_type5(tilnu_21, tilnu_31, I_single, rng=None)
+        p5_draws[i] = random_from_type5(tilnu_21, tilnu_31, I_single, rng=rng)
+    random_from_type5(tilnu_21, tilnu_31, I_single, rng=None)
 
     print("\nDistribution sampled without issue.")
 
@@ -333,8 +361,10 @@ def test_pearson6():
     print("\nGenerating draws from Pearson 6 sampler...")
     print("\n...")
 
+    rng = np.random.RandomState(seed=12345)
     for i in range(Nsamp):
-        p4_draws[i] = random_from_type6(tilnu_21, tilnu_31, tilnu_41, I_single, rng=None)
+        p4_draws[i] = random_from_type6(tilnu_21, tilnu_31, tilnu_41, I_single, rng=rng)
+    random_from_type6(tilnu_21, tilnu_31, tilnu_41, I_single, rng=None)
 
     print("\nDistribution sampled without issue.")
 

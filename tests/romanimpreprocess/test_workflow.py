@@ -13,7 +13,7 @@ from PIL import Image
 from roman_datamodels.dqflags import pixel
 from romanimpreprocess.from_sim import sim_to_isim
 from romanimpreprocess.L1_to_L2 import gen_cal_image, gen_noise_image
-from romanimpreprocess.utils import fpaplot, ipc_linearity, maskhandling, visualize
+from romanimpreprocess.utils import fpaplot, ipc_linearity, maskhandling, orientation, visualize
 
 # Settings for this test
 id = 163
@@ -540,6 +540,15 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
         }
         | supp
     )
+
+    # test extraction of the orientation
+    ordict = orientation.get_orientation(tmp_dir + f"/OUT-L1/sim_L1withdd_{band:s}_{id:d}_{sca:d}.asdf")
+    print(ordict)
+    assert 37.045 < ordict["ra"] < 37.047
+    assert -19.507 < ordict["dec"] < -19.505
+    assert 4.999 < ordict["pa"] < 5.001
+    assert len(ordict["ra_sca"]) == 18
+    assert len(ordict["dec_sca"]) == 18
 
     # copy this file into a place for WFI18 (so that we can test transient function)
     with asdf.open(tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_{sca:d}.asdf") as a:

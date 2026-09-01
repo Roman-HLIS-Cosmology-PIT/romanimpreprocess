@@ -5,7 +5,7 @@ import galsim
 import numpy as np
 from astropy.io import fits
 from romanimpreprocess import pars
-from romanimpreprocess.from_sim.sim_to_isim import Image2D, Image2D_from_L1
+from romanimpreprocess.from_sim.sim_to_isim import Image2D, Image2D_from_L1, hdu_sip_hflip, hdu_sip_vflip
 
 EXAMPLE_FILE = (
     "https://github.com/Roman-HLIS-Cosmology-PIT/romanimpreprocess/wiki/test-files/"
@@ -111,3 +111,33 @@ def test_simple(tmp_path):
 
     assert np.count_nonzero(np.abs(postagenew - postageorig) > 0.4) <= 3
     assert np.count_nonzero(np.abs(postagenew - postageorig) > 0.2) <= 13
+
+
+def test_wcs_nosip():
+    """Test WCS flip without SIP coefficients."""
+
+    # build simple image
+    data = np.zeros((512, 512), dtype=np.float32)
+    data[0, 6] = 1.0
+    header = {
+        "CRPIX1": 256.5,
+        "CRPIX2": 256.5,
+        "CD1_1": 1.0,
+        "CD1_2": 0.1,
+        "CD2_1": 0.2,
+        "CD2_2": 1.5,
+    }
+
+    hdu_sip_hflip(data, header)
+    assert data[0, -7] == 1.0
+    assert -1.001 < header["CD1_1"] < -0.999
+    assert 0.099 < header["CD1_2"] < 0.101
+    assert -0.201 < header["CD2_1"] < -0.199
+    assert 1.499 < header["CD2_2"] < 1.501
+
+    hdu_sip_vflip(data, header)
+    assert data[-1, -7] == 1.0
+    assert -1.001 < header["CD1_1"] < -0.999
+    assert -0.101 < header["CD1_2"] < -0.099
+    assert -0.201 < header["CD2_1"] < -0.199
+    assert -1.501 < header["CD2_2"] < -1.499
