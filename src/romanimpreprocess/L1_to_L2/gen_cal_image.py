@@ -76,8 +76,8 @@ def wcs_from_config(config):
 
     Returns
     -------
-    astropy.io.fits.header.Header or galsim.wcs.CelestialWCS
-        The WCS as a FITS header or GalSim WCS.
+    astropy.io.fits.header.Header or romanisim.models.wcs.GWCS
+        The WCS as a FITS header or romanisim's wrapper class.
 
     """
 
