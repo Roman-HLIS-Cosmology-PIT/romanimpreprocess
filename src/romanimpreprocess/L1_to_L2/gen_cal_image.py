@@ -91,13 +91,9 @@ def wcs_from_config(config):
             with asdf.AsdfFile() as ag:
                 gwcs_obj = tagged_tree_to_custom_tree(awcs, ag)
 
-            def _radec_func(x, y):
-                ra, dec = gwcs_obj(x, y, with_bounding_box=False)
-                ra *= np.pi / 180.0  # convert from GWCS degrees to GalSim radians
-                dec *= np.pi / 180.0
-                return (ra, dec)
-
-            return galsim.RaDecFunction(_radec_func, origin=galsim.PositionD(0, 0))
+            # wrap in romanisim's GWCS (a galsim.CelestialWCS) so that
+            # riwcs.convert_wcs_to_gwcs can recover the full gwcs object
+            return riwcs.GWCS(gwcs_obj)
 
     # if no WCS was found, just return None (we'll deal with this later)
     return None
