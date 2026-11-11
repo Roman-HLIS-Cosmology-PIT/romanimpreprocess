@@ -18,6 +18,7 @@ calibrateimage
 
 """
 
+import copy
 import importlib.metadata
 import sys
 import warnings  # noqa: F401
@@ -26,6 +27,7 @@ import asdf
 import galsim  # noqa: F401
 import numpy as np
 import yaml
+from asdf.yamlutil import tagged_tree_to_custom_tree
 from astropy import units as u
 from astropy.io import fits
 from roman_datamodels import datamodels
@@ -64,7 +66,8 @@ def wcs_from_config(config):
     """
     Gets a WCS object from the configuration.
 
-    Currently supports FITS headers imported from a simulation.
+    Currently supports FITS headers imported from a simulation ("FITSWCS") or
+    a SOC L2 WCS file ("SOCWCS").
 
     Parameters
     ----------
@@ -73,14 +76,24 @@ def wcs_from_config(config):
 
     Returns
     -------
-    astropy.io.fits.header.Header
-        The WCS as a FITS header.
+    astropy.io.fits.header.Header or romanisim.models.wcs.GWCS
+        The WCS as a FITS header or romanisim's wrapper class.
 
     """
 
     if "FITSWCS" in config:
         with open(config["FITSWCS"]) as f:
             return fits.Header.fromstring(f.read())
+
+    if "SOCWCS" in config:
+        with asdf.open(config["SOCWCS"]) as af:
+            awcs = copy.deepcopy(af["roman"]["wcs_l2"])
+            with asdf.AsdfFile() as ag:
+                gwcs_obj = tagged_tree_to_custom_tree(awcs, ag)
+
+            # wrap in romanisim's GWCS (a galsim.CelestialWCS) so that
+            # riwcs.convert_wcs_to_gwcs can recover the full gwcs object
+            return riwcs.GWCS(gwcs_obj)
 
     # if no WCS was found, just return None (we'll deal with this later)
     return None
@@ -248,13 +261,19 @@ def repackage_wcs(thewcs):
 
     Returns
     -------
-    class
-        Packaged WCS, 2 layers deep for compatibility with romanisim.
+    class or galsim.CelestialWCS
+        One of:
+
+        - Packaged WCS, 2 layers deep for compatibility with romanisim.
+
+        - The original, if a ``galsim.CelestialWCS``.
 
     """
 
     # make WCS --- a few ways of doing this
+    j = 0
     while True:
+        j += 1
         wcsobj = None
 
         class Blank:
@@ -265,6 +284,10 @@ def repackage_wcs(thewcs):
             wcsobj = Blank()
             wcsobj.header = Blank()
             wcsobj.header.header = thewcs
+            break
+
+        if isinstance(thewcs, galsim.wcs.BaseWCS):
+            wcsobj = thewcs
             break
 
         # should work if this is a GalSim WCS
@@ -287,6 +310,11 @@ def repackage_wcs(thewcs):
         # except Exception as e:
         #     wcsobj = None
         #    raise Exception("Unrecognized WCS") from e
+
+        # want the ability to circle through if we have to reduce a WCS type to another type
+        # that is captured earlier.
+        if j == 3:
+            raise TypeError("Can't resolve WCS type.")
 
     return wcsobj
 
