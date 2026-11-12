@@ -839,7 +839,7 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
         imtest[2936:2952, :] = 1
         imtest[2935:2953, 1731:1749] = 1
         # fits.PrimaryHDU(v).writeto("v.fits", overwrite=True)  # for diagnostic
-        # assert np.all(v == imtest)
+        assert np.all(v == imtest)
 
     if cleanup:
         for rf in [
