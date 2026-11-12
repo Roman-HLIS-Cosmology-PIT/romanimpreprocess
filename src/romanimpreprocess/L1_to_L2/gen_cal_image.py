@@ -44,7 +44,7 @@ from romanisim import persistence as rip
 
 try:
     from romanisim.models import wcs as riwcs
-except ImportError:
+except ImportError:  # pragma: no cover
     from romanisim import wcs as riwcs
 
 from .. import pars
@@ -777,7 +777,7 @@ def calibrateimage(config, verbose=True):
     return
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     with open(sys.argv[1]) as f:
         config = yaml.safe_load(f)
 
