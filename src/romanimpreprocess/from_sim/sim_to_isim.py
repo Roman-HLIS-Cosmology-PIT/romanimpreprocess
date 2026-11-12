@@ -54,7 +54,7 @@ from romanisim.models import parameters
 
 try:
     from romanisim.models import wcs
-except ImportError:
+except ImportError:  # pragma: no cover
     from romanisim import wcs
 
 from .. import pars
