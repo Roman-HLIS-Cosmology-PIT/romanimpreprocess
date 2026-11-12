@@ -566,9 +566,9 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
         p = a["roman"]["meta"]["guide_star"]
         p["hv_position"] = [1002.0, 100.0]
         p["window_xstart"] = 1736
-        p["window_xstop"] = 1752
+        p["window_xstop"] = 1751
         p["window_ystart"] = 2940
-        p["window_ystop"] = 2956
+        p["window_ystop"] = 2955
         a.write_to(tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_16.asdf")
 
     # Below here is stuff for Level 1-->2
