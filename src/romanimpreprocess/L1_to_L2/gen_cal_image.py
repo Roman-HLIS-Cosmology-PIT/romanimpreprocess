@@ -41,7 +41,11 @@ from romancal.saturation import saturation
 from romancal.wfi18_transient.wfi18_transient import correct_anomaly
 from romanisim import image as rimage
 from romanisim import persistence as rip
-from romanisim import wcs as riwcs
+
+try:
+    from romanisim.models import wcs as riwcs
+except ImportError:  # pragma: no cover
+    from romanisim import wcs as riwcs
 
 from .. import pars
 from ..utils import (
@@ -786,7 +790,7 @@ def calibrateimage(config, verbose=True):
     return
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     with open(sys.argv[1]) as f:
         config = yaml.safe_load(f)
 
