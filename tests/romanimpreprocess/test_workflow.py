@@ -10,7 +10,6 @@ import numpy as np
 from astropy.io import fits
 from astropy.stats import mad_std
 from astropy.wcs import WCS
-from PIL import Image
 from roman_datamodels.dqflags import pixel
 from romanimpreprocess.from_sim import sim_to_isim
 from romanimpreprocess.L1_to_L2 import gen_cal_image, gen_noise_image
@@ -753,7 +752,7 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
     for i in range(np.shape(checkpix)[0]):
         diff = arr[checkpix[i, 0], checkpix[i, 1], :].astype(np.int16) - checkpix[i, -3:]
         assert np.all(np.abs(diff) < 16)
-    Image.fromarray(arr[::-1, :, :]).save("panel_image.png")
+    # Image.fromarray(arr[::-1, :, :]).save("panel_image.png")
 
     supp = {"EXTRACT_REF": {"data_encoding_offset": 4000}} if subtr else {}
     sim_to_isim.run_config(
@@ -809,6 +808,17 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
     # make a GWCS file
     if not subtr:
         _write_wcs(tmp_dir + "/test_gwcs.asdf")
+
+    # copy this file with guide window
+    with asdf.open(tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_{sca:d}.asdf") as a:
+        a["roman"]["meta"]["instrument"]["detector"] = "WFI16"
+        p = a["roman"]["meta"]["guide_star"]
+        p["hv_position"] = [1002.0, 100.0]
+        p["window_xstart"] = 1736
+        p["window_xstop"] = 1751
+        p["window_ystart"] = 2940
+        p["window_ystop"] = 2955
+        a.write_to(tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_16.asdf")
 
     # Below here is stuff for Level 1-->2
 
@@ -873,6 +883,17 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
             "SKYORDER": 2,
         }
         gen_cal_image.calibrateimage(c2e)
+    c5 = {
+        "IN": tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_16.asdf",
+        "OUT": tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_16.asdf",
+        "FITSWCS": tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_{sca:d}_asdf_wcshead.txt",
+        "CALDIR": caldir,
+        "RAMP_OPT_PARS": {"slope": 0.4, "gain": 1.8, "sigma_read": 7.0},
+        "JUMP_DETECT_PARS": {"SthreshA": 10.0, "SthreshB": 4.5, "IthreshA": 0.6, "IthreshB": 600.0},
+        "SKYORDER": 2,
+        "FITSOUT": True,
+    }
+    gen_cal_image.calibrateimage(c5)
 
     ### TESTS ON THE OUTPUTS
 
@@ -1090,6 +1111,16 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
     with fits.open(str(tmp_path) + "/OUT-L2/sim_L2_F184_163_4_asdf_to.fits") as f:
         image = np.copy(f[0].data)
         mask = np.copy(f[1].data)
+
+    # test the guide window
+    with asdf.open(c5["OUT"]) as af:
+        v = np.where(af["roman"]["dq"] & pixel.GW_AFFECTED_DATA, 1, 0).astype(np.uint8)
+        imtest = np.zeros((4088, 4088), dtype=np.uint8)
+        imtest[:, 1732:1748] = 1
+        imtest[2936:2952, :] = 1
+        imtest[2935:2953, 1731:1749] = 1
+        # fits.PrimaryHDU(v).writeto("v.fits", overwrite=True)  # for diagnostic
+        assert np.all(v == imtest)
 
     if cleanup:
         if not subtr:

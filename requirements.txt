@@ -5,8 +5,8 @@ gwcs
 galsim
 fitsio
 asdf
-matplotlib
+matplotlib>=3.6.0
 romanisim
 roman_datamodels>=0.27.0
 stcal
-romancal>=1.0.0
+romancal>=1.2.0

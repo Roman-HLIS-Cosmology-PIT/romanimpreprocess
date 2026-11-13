@@ -41,7 +41,11 @@ from romancal.saturation import saturation
 from romancal.wfi18_transient.wfi18_transient import correct_anomaly
 from romanisim import image as rimage
 from romanisim import persistence as rip
-from romanisim import wcs as riwcs
+
+try:
+    from romanisim.models import wcs as riwcs
+except ImportError:  # pragma: no cover
+    from romanisim import wcs as riwcs
 
 from .. import pars
 from ..utils import (
@@ -150,6 +154,19 @@ def initializationstep(config, caldir, mylog):
         meta["tau"][i] = (t0 + (meta["N"][i] - 1) * (2 * meta["N"][i] - 1) / (6.0 * meta["N"][i])) * meta[
             "frame_time"
         ]
+
+    # additional guide window flagging, if needed
+    #
+    # with asdf.open(config["IN"]) as af:
+    #     _gw = af["roman"]["meta"]["guide_star"]
+    #     gw = {
+    #         "xstart": _gw["window_xstart"],
+    #         "xstop": _gw["window_xstop"],
+    #         "ystart": _gw["window_ystart"],
+    #         "ystop": _gw["window_ystop"],
+    #     }
+    # if gw["ystart"] >= 0 and gw["ystop"] < 4096:
+    #     ramp_model["groupdq"][:, gw["ystart"] : gw["ystop"], :] |= pixel.GW_AFFECTED_DATA
 
     if config.get("EXCLUDE_FIRST", True):
         ramp_model["groupdq"][0, ...] |= group.DO_NOT_USE
@@ -773,7 +790,7 @@ def calibrateimage(config, verbose=True):
     return
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     with open(sys.argv[1]) as f:
         config = yaml.safe_load(f)
 
