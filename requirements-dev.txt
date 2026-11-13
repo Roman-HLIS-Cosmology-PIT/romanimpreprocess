@@ -1,3 +1,4 @@
+gzip
 jupyter # Clears output from Jupyter notebooks
 pre-commit # Used to run checks before finalizing a git commit
 pytest
