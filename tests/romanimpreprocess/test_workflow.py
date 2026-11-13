@@ -793,18 +793,22 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
     assert len(ordict["dec_sca"]) == 18
 
     # copy this file into a place for WFI18 (so that we can test transient function)
-    with asdf.open(tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_{sca:d}.asdf") as a:
-        a["roman"]["meta"]["instrument"]["detector"] = "WFI18"
-        # this is just a toy example to exercise that the WFI18 correction is "on"
-        newdata = a["roman"]["data"][0, 4:-4, 4:-4].astype(np.float32)
-        rows = np.linspace(4, 4091, 4088)
-        rows += rows // 256 * 4  # insert a timing gap
-        newdata += (-80.0 * np.exp(-rows / 150.0) + 5.0 * np.exp(-rows / 1300.0)).astype(np.float32)[:, None]
-        a["roman"]["data"][0, 4:-4, 4:-4] = np.clip(newdata, 0, 65535)
-        a.write_to(tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_18.asdf")
+    if not subtr:
+        with asdf.open(tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_{sca:d}.asdf") as a:
+            a["roman"]["meta"]["instrument"]["detector"] = "WFI18"
+            # this is just a toy example to exercise that the WFI18 correction is "on"
+            newdata = a["roman"]["data"][0, 4:-4, 4:-4].astype(np.float32)
+            rows = np.linspace(4, 4091, 4088)
+            rows += rows // 256 * 4  # insert a timing gap
+            newdata += (-80.0 * np.exp(-rows / 150.0) + 5.0 * np.exp(-rows / 1300.0)).astype(np.float32)[
+                :, None
+            ]
+            a["roman"]["data"][0, 4:-4, 4:-4] = np.clip(newdata, 0, 65535)
+            a.write_to(tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_18.asdf")
 
     # make a GWCS file
-    _write_wcs(tmp_dir + "/test_gwcs.asdf")
+    if not subtr:
+        _write_wcs(tmp_dir + "/test_gwcs.asdf")
 
     # Below here is stuff for Level 1-->2
 
@@ -841,13 +845,14 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
     gen_cal_image.calibrateimage(c_rc)
 
     # now do a test as if this were WFI18 to exercise the post-reset transient functionality
-    c2x = c2 | {"correct_wfi18_transient": True, "EXCLUDE_FIRST": False}
-    c2x["IN"] = tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_18.asdf"
-    c2x["OUT"] = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_18_noexcludefirst.asdf"
-    gen_cal_image.calibrateimage(c2x)
-    c4 = c2 | {"correct_wfi18_transient": True, "EXCLUDE_FIRST": False}
-    c4["OUT"] = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noexcludefirst.asdf"
-    gen_cal_image.calibrateimage(c4)
+    if not subtr:
+        c2x = c2 | {"correct_wfi18_transient": True, "EXCLUDE_FIRST": False}
+        c2x["IN"] = tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_18.asdf"
+        c2x["OUT"] = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_18_noexcludefirst.asdf"
+        gen_cal_image.calibrateimage(c2x)
+        c4 = c2 | {"correct_wfi18_transient": True, "EXCLUDE_FIRST": False}
+        c4["OUT"] = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_noexcludefirst.asdf"
+        gen_cal_image.calibrateimage(c4)
 
     # this one tests dark decay
     # right now not actually implemented -- this shows up as a change in the "sky"
@@ -981,23 +986,27 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
         assert 100 < jump_rc < 2 * jump_local
 
     # checks on the WFI18 version
-    with asdf.open(c2x["IN"]) as _a:
-        assert np.allclose(
-            np.percentile(_a["roman"]["data"], 99, axis=(-2, -1)), checkdata["wfi18p99"], atol=2.2, rtol=0.0
-        )
-        assert np.allclose(
-            np.percentile(_a["roman"]["data"], 1, axis=(-2, -1)), checkdata["wfi18p1"], atol=2.2, rtol=0.0
-        )
+    if not subtr:
+        with asdf.open(c2x["IN"]) as _a:
+            assert np.allclose(
+                np.percentile(_a["roman"]["data"], 99, axis=(-2, -1)),
+                checkdata["wfi18p99"],
+                atol=2.2,
+                rtol=0.0,
+            )
+            assert np.allclose(
+                np.percentile(_a["roman"]["data"], 1, axis=(-2, -1)), checkdata["wfi18p1"], atol=2.2, rtol=0.0
+            )
 
-    with asdf.open(c4["OUT"]) as a_notr, asdf.open(c2x["OUT"]) as a_withtr:
-        diff = a_withtr["roman"]["data"] - a_notr["roman"]["data"]
-        # the 10/20/80/90th percentile wthiout correction are -0.078/-0.049/+0.029/+0.031
-        assert np.percentile(diff, 10) > -0.014
-        assert np.percentile(diff, 20) > -0.007
-        assert np.percentile(diff, 80) < 0.007
-        assert np.percentile(diff, 90) < 0.014
-        # make sure they are different!
-        assert np.percentile(diff, 80) - np.percentile(diff, 20) > 1e-4
+        with asdf.open(c4["OUT"]) as a_notr, asdf.open(c2x["OUT"]) as a_withtr:
+            diff = a_withtr["roman"]["data"] - a_notr["roman"]["data"]
+            # the 10/20/80/90th percentile wthiout correction are -0.078/-0.049/+0.029/+0.031
+            assert np.percentile(diff, 10) > -0.014
+            assert np.percentile(diff, 20) > -0.007
+            assert np.percentile(diff, 80) < 0.007
+            assert np.percentile(diff, 90) < 0.014
+            # make sure they are different!
+            assert np.percentile(diff, 80) - np.percentile(diff, 20) > 1e-4
 
     # checks on the darkdecay version
     with asdf.open(c2["OUT"]) as a_orig, asdf.open(c2d["OUT"]) as a_new:
@@ -1086,6 +1095,15 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
         if not subtr:
             os.remove(tmp_path / "test_gwcs.asdf")
             os.remove(tmp_path / "OUT-L2/sim_L2gwcs_F184_163_4.asdf")
+            for rf in ["sim_L1_F184_163_18.asdf"]:
+                os.remove(tmp_path / f"OUT-L1/{rf}")
+            for rf in [
+                "sim_L2_F184_163_18_noexcludefirst_asdf_to.fits",
+                "sim_L2_F184_163_4_noexcludefirst.asdf",
+                "sim_L2_F184_163_18_noexcludefirst.asdf",
+                "sim_L2_F184_163_4_noexcludefirst_asdf_to.fits",
+            ]:
+                os.remove(tmp_path / f"OUT-L2/{rf}")
         for rf in [
             "out_im1.pdf",
             "roman_wfi_linearitylegendre_TESTONLY_SCA04.asdf",
@@ -1108,7 +1126,6 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
         for rf in ["Roman_Test_truth_F184_163_4.fits"]:
             os.remove(tmp_path / f"IN/{rf}")
         for rf in [
-            "sim_L1_F184_163_18.asdf",
             "sim_L1_F184_163_4.asdf",
             "sim_L1withdd_F184_163_4.asdf",
             "sim_L1_F184_163_4_asdf_to.fits",
@@ -1118,10 +1135,7 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
         ]:
             os.remove(tmp_path / f"OUT-L1/{rf}")
         for rf in [
-            "sim_L2_F184_163_18_noexcludefirst_asdf_to.fits",
-            "sim_L2_F184_163_4_noexcludefirst.asdf",
             "sim_L2_F184_163_4_romancalfit_asdf_to.fits",
-            "sim_L2_F184_163_18_noexcludefirst.asdf",
             "sim_L2_F184_163_4_noise_asdf_to.fits",
             "sim_L2_F184_163_4_romancalfit.asdf",
             "sim_L2_F184_163_4_asdf_to.fits",
@@ -1130,7 +1144,6 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
             "sim_L2_F184_163_4_mask.fits",
             "sim_L2_F184_163_4_noise16_asdf_to.fits",
             "sim_L2_F184_163_4_withdecay.asdf",
-            "sim_L2_F184_163_4_noexcludefirst_asdf_to.fits",
             "sim_L2_F184_163_4_noise16.asdf",
             "sim_L2_F184_163_4.asdf",
         ]:
