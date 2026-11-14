@@ -5,6 +5,8 @@ Functions
 ---------
 construct_weights
     Makes a numpy array of weights for slope fitting.
+build_gradient
+    Gradient map of an image.
 jump_detect
     Searches for a jump.
 ramp_fit
@@ -86,7 +88,55 @@ def construct_weights(u, meta, exclude_first=True):
     return K.astype(np.float32)
 
 
-def jump_detect(data, rdq, pdq, meta, caldir, mylog, exclude_first=True, truncate_ramp=None):
+def build_gradient(data, rdq, pdq, tbar):
+    """
+    Gradient map of an image.
+
+    Parameters
+    ----------
+    data : np.array
+        The input data in DN, shape = (ngrp,ny,nx).
+    rdq : np.array
+        3D array, flags (ramp data quality)
+    pdq : np.array
+        2D array, flags (pixel data quality)
+    tbar : np.array
+        The timestamps, length ngrp.
+
+    Returns
+    -------
+    np.array
+        The 2D map of the scalar gradient in DN/s/pix, shape (ny, nx).
+
+    """
+
+    # need at least 4 resultants to do this, otherwise will give an error
+    nt = len(tbar)
+    if nt < 4:
+        return np.zeros_like(data[1])
+
+    # in DN/s
+    ratemap = (data[1:] - data[:-1]) / (tbar[1:] - tbar[:-1])[:, None, None]
+
+    # extrapolate past the end if saturated
+    for j in range(1, nt - 1):
+        ratemap[j] = np.where(~rdq[j + 1, :, :] & pixel.SATURATED, ratemap[j], ratemap[j - 1])
+
+    # take the 3rd-to-highest value since a CR inside a resultant can affect 2 differences
+    # also extends by 1
+    ratemap.sort(axis=0)
+    ratemap_2d_ext = np.pad(ratemap[-3], 1)
+    grad = (
+        np.hypot(
+            ratemap_2d_ext[2:, 1:-1] - ratemap_2d_ext[:-2, 1:-1],
+            ratemap_2d_ext[1:-1, 2:] - ratemap_2d_ext[1:-1, :-2],
+        )
+        / 2.0
+    )
+    return grad
+
+
+def jump_detect(data, rdq, pdq, meta, caldir, mylog, exclude_first=True, truncate_ramp=None, add_quad=None):
     """
     Searches for a jump.
 
@@ -110,6 +160,9 @@ def jump_detect(data, rdq, pdq, meta, caldir, mylog, exclude_first=True, truncat
         Exclude the first sample?
     truncate_ramp : int or None, optional
         If given, truncates the ramp at this sample (useful for saturated pixels).
+    add_quad : np.array of float or float or None, optional
+        If given, treats this as an additional term in the quadrature sum for the noise when flagging
+        a pixel.
 
     Returns
     -------
@@ -239,6 +292,10 @@ def jump_detect(data, rdq, pdq, meta, caldir, mylog, exclude_first=True, truncat
                 var_delta_slope += w[a] ** 2 * (dvardt * meta["tau"][a] + sig2read / np.array(meta["N"][a]))
                 for b in range(a):
                     var_delta_slope += 2 * w[a] * w[b] * dvardt * meta["tbar"][b]
+
+            if add_quad is not None:
+                var_delta_slope = np.hypot(var_delta_slope, add_quad)
+
             smap[sl, :, :] = delta_slope / np.sqrt(var_delta_slope).astype(np.float32)
             mylog.append(
                 f"cr_bkgnd: grp={i:d},{i+di:d}, medvar={np.median(var_delta_slope):f},"
@@ -305,13 +362,21 @@ def ramp_fit(data, rdq, pdq, meta, caldir, mylog, exclude_first=True):
     * ``'K'`` : np.array
       1D weight vector, ususally comes from construct_weights.
 
+    It can also have a ``jump_detect_pars`` key with jump detectin keywords.
+
     """
 
     loc_rdq = np.zeros_like(rdq)  # local copy since which pixels we want to flag will depend on saturation
 
+    # gradient times weight, used to clip flagging
+    w = 0.0
+    if "jump_detect_pars" in meta:
+        w = meta["jump_detect_pars"].get("gradient", 0.0)
+    gwt = w * build_gradient(data, rdq, pdq, meta["tbar"]) if w > 0.0 else 0.0
+
     # basic ramp fit
     slope, slope_err_read, slope_err_poisson, smap = jump_detect(
-        data, loc_rdq, pdq, meta, caldir, mylog, exclude_first, truncate_ramp=None
+        data, loc_rdq, pdq, meta, caldir, mylog, exclude_first, truncate_ramp=None, add_quad=gwt
     )
     # fits.PrimaryHDU(smap).writeto('crdet.fits',overwrite=True) <-- for testing
     # update quality flags if not saturated
@@ -328,7 +393,7 @@ def ramp_fit(data, rdq, pdq, meta, caldir, mylog, exclude_first=True):
         thislayer = rdq[iend, :, :] & ~rdq[iend - 1, :, :] & pixel.SATURATED != 0
         loc_rdq[:, :, :] = 0  # reset the local data quality so we don't propagate flags from bad fits
         slope_, slope_err_read_, slope_err_poisson_, smap = jump_detect(
-            data, loc_rdq, pdq, meta, caldir, mylog, exclude_first, truncate_ramp=iend
+            data, loc_rdq, pdq, meta, caldir, mylog, exclude_first, truncate_ramp=iend, add_quad=gwt
         )
         slope = np.where(thislayer, slope_, slope)
         slope_err_read = np.where(thislayer[:, :], slope_err_read_, slope_err_read)
