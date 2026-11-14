@@ -294,7 +294,7 @@ def jump_detect(data, rdq, pdq, meta, caldir, mylog, exclude_first=True, truncat
                     var_delta_slope += 2 * w[a] * w[b] * dvardt * meta["tbar"][b]
 
             if add_quad is not None:
-                var_delta_slope = np.hypot(var_delta_slope, add_quad)
+                var_delta_slope += add_quad**2
 
             smap[sl, :, :] = delta_slope / np.sqrt(var_delta_slope).astype(np.float32)
             mylog.append(
@@ -373,6 +373,8 @@ def ramp_fit(data, rdq, pdq, meta, caldir, mylog, exclude_first=True):
     if "jump_detect_pars" in meta:
         w = meta["jump_detect_pars"].get("gradient", 0.0)
     gwt = w * build_gradient(data, rdq, pdq, meta["tbar"]) if w > 0.0 else 0.0
+    print(meta, w, gwt)
+    print("", flush=True)
 
     # basic ramp fit
     slope, slope_err_read, slope_err_poisson, smap = jump_detect(
