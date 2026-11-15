@@ -1,6 +1,7 @@
 """Test for the image gradient functions."""
 
 import numpy as np
+import pytest
 from roman_datamodels.dqflags import pixel
 from romanimpreprocess.utils.fitting import build_gradient
 
@@ -42,3 +43,9 @@ def test_build_grad():
     target[5, 5] = 0.5
     target[6, 0] = 1.0
     assert np.allclose(g, target, atol=0.01)
+
+    # what if the data array is too small?
+    assert np.all(build_gradient(np.zeros((3, 64, 64)), None, None, None) == np.zeros((64, 64)))
+
+    with pytest.raises(ValueError):
+        build_gradient(np.zeros((5, 64, 64)), None, None, np.zeros(7))

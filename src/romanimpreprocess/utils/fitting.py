@@ -111,9 +111,12 @@ def build_gradient(data, rdq, pdq, tbar):
     """
 
     # need at least 4 resultants to do this, otherwise will give an error
-    nt = len(tbar)
+    nt = np.shape(data)[0]
     if nt < 4:
-        return np.zeros_like(data[1])
+        return np.zeros_like(data[0])
+
+    if len(tbar) != nt:
+        raise ValueError("Error: tbar must have the same length as the number of data slices.")
 
     # in DN/s
     ratemap = (data[1:] - data[:-1]) / (tbar[1:] - tbar[:-1])[:, None, None]
