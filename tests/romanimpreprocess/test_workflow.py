@@ -2,6 +2,7 @@
 
 
 import contextlib
+import copy
 import gzip
 import os
 
@@ -854,6 +855,12 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
     }
     gen_cal_image.calibrateimage(c_rc)
 
+    # gradient term
+    c2grad = copy.deepcopy(c2)
+    c2grad["JUMP_DETECT_PARS"]["gradient"] = 0.1
+    c2grad["OUT"] = tmp_dir + f"/OUT-L2/sim_L2grad_{band:s}_{id:d}_{sca:d}.asdf"
+    gen_cal_image.calibrateimage(c2grad)
+
     # now do a test as if this were WFI18 to exercise the post-reset transient functionality
     if not subtr:
         c2x = c2 | {"correct_wfi18_transient": True, "EXCLUDE_FIRST": False}
@@ -1005,6 +1012,18 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
         print(f"mad_std((local-rc)/err)={z:.4f}, jump_local={jump_local}, jump_rc={jump_rc}")
         assert z < 0.05
         assert 100 < jump_rc < 2 * jump_local
+
+    # checks on the jump flagging
+    with asdf.open(c2["OUT"]) as a_ref, asdf.open(c2grad["OUT"]) as a_grad:
+        cr_ref = np.count_nonzero((a_ref["roman"]["dq"] & pixel.JUMP_DET) != 0)
+        cr_grad = np.count_nonzero((a_grad["roman"]["dq"] & pixel.JUMP_DET) != 0)
+        cr_both = np.count_nonzero(
+            np.logical_and(
+                (a_ref["roman"]["dq"] & pixel.JUMP_DET) != 0, (a_grad["roman"]["dq"] & pixel.JUMP_DET) != 0
+            )
+        )
+        assert cr_both == cr_grad
+        assert 3 <= cr_ref - cr_grad <= 7
 
     # checks on the WFI18 version
     if not subtr:
@@ -1177,6 +1196,7 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
             "sim_L2_F184_163_4_withdecay.asdf",
             "sim_L2_F184_163_4_noise16.asdf",
             "sim_L2_F184_163_4.asdf",
+            "sim_L2grad_F184_163_4.asdf",
         ]:
             os.remove(tmp_path / f"OUT-L2/{rf}")
 

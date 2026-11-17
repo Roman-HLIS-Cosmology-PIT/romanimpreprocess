@@ -88,6 +88,12 @@ The configuration is a Python dictionary (normally read from a YAML file).
 
 - ``JUMP_DETECT_PARS``: Threshold parameters for the jump detection algorithm (we may ultimately enable more than one choice).
 
+  Current options include:
+
+  - the significance threshold for a jump: ``SthreshA``, ``SthreshB``, ``IthreshA``, ``IthreshB``
+
+  - allow adding the gradient in quadrature to the threshold: use the ``gradient`` option
+
 - ``FITSOUT``: If True, also writes a FITS output with the ``.asdf`` ending replaced with ``_asdf_to.fits``.
 
 - ``SKYORDER``: If provided, then subtracts a median-based sky model that is a 2D polynomial of the given order.
