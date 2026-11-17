@@ -20,12 +20,11 @@ import numpy as np
 import scipy.stats
 from scipy.ndimage import binary_dilation
 from scipy.special import legendre_p
+
 try:
     from moransi_sourcemasking import make_sourcemask
 except ImportError as err:
-    raise ImportError(
-        f"Moran's I sky masking requires the moransi_sourcemasking package"
-    ) from err
+    raise ImportError("Moran's I sky masking requires the moransi_sourcemasking package") from err
 
 
 def binkxk(arr, k):
@@ -242,7 +241,7 @@ def medfit(
             jj, ii = np.nonzero(used)
             raise ValueError(
                 f"medfit: singular fit (order={order}) with {len(ii)} boxes in use at "
-                f"(row, col) = {list(zip(jj.tolist(), ii.tolist()))}"
+                f"(row, col) = {list(zip(jj.tolist(), ii.tolist(), strict=False))}"
             ) from err
         if fit_clip is None or niter >= fit_maxiter:
             break
@@ -279,8 +278,6 @@ def medfit(
     return coef, arrmed.astype(arr.dtype)
 
 
-
-
 def moransi_sky_mask(arr, bad=None, weight=None, dilate=0, **pars):
     """
     Source mask based on the sliding-patch Moran's I statistic.
@@ -312,7 +309,6 @@ def moransi_sky_mask(arr, bad=None, weight=None, dilate=0, **pars):
         True for sky pixels, False for sources and for bad or non-finite pixels.
 
     """
-
 
     valid = np.isfinite(arr)
     if bad is not None:
