@@ -684,16 +684,48 @@ def calibrateimage(config, verbose=True):
     # sky information
     slope_withsky = np.copy(slope)  # version before sky subtraction
     m = maskhandling.PixelMask1.build(pdq)
-    medsky, _ = sky.smooth_mode(sky.binkxk(np.where(np.logical_not(m), slope, np.nan), 4))
+    # optional source mask for the sky estimate (True = excluded from the sky estimate)
+    skymask_method = str(config.get("SKYMASK", "none")).lower()
+    if skymask_method == "moransi":
+        is_sky = sky.moransi_sky_mask(
+            slope[nb:-nb, nb:-nb], bad=m[nb:-nb, nb:-nb], **config.get("SKYMASK_PARS", {})
+        )
+        notsky = np.ones(np.shape(slope), dtype=bool)
+        notsky[nb:-nb, nb:-nb] = ~is_sky
+        del is_sky
+        skymask_frac = float(np.mean(notsky[nb:-nb, nb:-nb]))
+        mylog.append(f"Moran's I sky mask: {100 * skymask_frac:.2f}% of active pixels excluded from sky\n")
+    elif skymask_method == "none":
+        notsky = None
+    else:
+        raise ValueError(f"Unknown SKYMASK method: {config['SKYMASK']}")
+    medsky, _ = sky.smooth_mode(
+        sky.binkxk(np.where(np.logical_not(m if notsky is None else m | notsky), slope, np.nan), 4)
+    )
     # if the configuration asks for simple subtraction, do it
+    skyfitclip = config.get("SKYFITCLIP", None)  # outlier-box rejection threshold for the polynomial fit
+    skynbox = int(config.get("SKYNBOX", 8))  # number of boxes per axis
     if "SKYORDER" in config:
         skyorder = int(config["SKYORDER"])
-        skycoefs, skymodel = sky.medfit(slope[nb:-nb, nb:-nb], order=skyorder)
+        skycoefs, skymodel, skyinfo = sky.medfit(
+            slope[nb:-nb, nb:-nb],
+            N=skynbox,
+            order=skyorder,
+            mask=None if notsky is None else notsky[nb:-nb, nb:-nb],
+            fit_clip=skyfitclip,
+            return_info=True,
+        )
         slope[nb:-nb, nb:-nb] -= skymodel
+        mylog.append(
+            f"sky fit: order={skyorder}, {skynbox}x{skynbox} boxes, fit_clip={skyfitclip}, "
+            f"{np.count_nonzero(skyinfo['used'])} boxes used after "
+            f"{skyinfo['niter']} rejection iteration(s)\n"
+        )
         del skymodel
     else:
         skycoefs = np.array([]).astype(np.float32)
         skyorder = -1  # not used
+    del notsky
 
     im2, extras2 = rimage.make_asdf(
         slope[nb:-nb, nb:-nb] * u.DN / u.s,
