@@ -44,7 +44,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .[dev]
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install git+hcferguson/moransi_sourcemasking.git  # will replace when moved to photutils
+        pip install git+https://github.com/hcferguson/moransi_sourcemasking@main  # will replace when moved to photutils
     - name: Run unit tests with pytest
       run: |
         python -m pytest --cov=romanimpreprocess --cov-report=xml
