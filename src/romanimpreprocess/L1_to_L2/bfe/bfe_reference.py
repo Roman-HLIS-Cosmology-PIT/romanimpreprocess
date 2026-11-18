@@ -7,22 +7,6 @@ TODO: implement everything.
 import numpy as np
 from solid_waffle import ftsolve
 
-records = []
-raw_data = {}
-grid_data = {}
-
-COL_NUM = 26 
-
-def extract_bfe_data(filename):
-    with open(filename) as f:
-        data = np.loadtxt(f)
-
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
-        
-        return data[:, COL_NUM]
-
-
 def extract_summary_column(filename, col):
      with open(filename) as f:
              data = np.loadtxt(f)
@@ -32,40 +16,37 @@ def extract_summary_column(filename, col):
              
              return data[:, col]
 
-def deconv(filename, N):
-    bfek = extract_summary_column(filename, 26)
+def deconv(filename, N, bfek):
 
     aD = extract_summary_column(filename, 11)
     aH = extract_summary_column(filename, 7)
     aV = extract_summary_column(filename, 8)
 
-    aD_nl = extract_summary_column(filename, 11)
-    aH_nl = extract_summary_column(filename, 7)
-    aV_nl = extract_summary_column(filename, 8)
-    
-    k = ftsolve.decenter(ftsolve.pad_to_N(np.array([[aD, aV, aD], [aH, 1 - 4 * aD - 2 * aV - 2 * aH, aH], [aD, aV, aD]]), N))
+    a = []
+    for i in range(len(bfek)):
+        k = ftsolve.decenter(ftsolve.pad_to_N(np.array([[aD[i], aV[i], aD[i]], [aH[i], 1 - 4 * aD[i] - 2 * aV[i] - 2 * aH[i], aH[i]], [aD[i], aV[i], aD[i]]]), N))
 
-    knl = ftsolve.decenter(
-        ftsolve.pad_to_N(
-            np.array(
-                [
-                    [aD_nl, aV_nl, aD_nl],
-                    [aH_nl, -4 * aD_nl - 2 * aV_nl - 2 * aH_nl, aH_nl],
-                    [aD_nl, aV_nl, aD_nl],
-                ]
-            ),
-            N,
-        )
-    )
-
-    # solve Fourier version for asq: F(BFEK) = Ksq^2*asq + Ksq*Knl_sq
-    bfek = ftsolve.decenter(ftsolve.pad_to_N(bfek, N))
-    ksq = ftsolve.fft2(k)
-    knl_sq = ftsolve.fft2(knl)
-    asq = (ftsolve.fft2(bfek) - ksq * knl_sq) / ksq**2
-    return ftsolve.ifft2(asq)
+        # solve Fourier version for asq: F(BFEK) = Ksq^2*asq + Ksq*Knl_sq
+        b = ftsolve.decenter(ftsolve.pad_to_N(bfek[i], N))
+        ksq = ftsolve.fft2(k)
+        asq = (ftsolve.fft2(b)) / ksq**2
+        a.append(ftsolve.ifft2(asq))
+    return np.array(a)
 
 def make_kernel(filename):
-    a = deconv(filename, 5)
-    np.reshape(a, (32,32))
+    columns = [extract_summary_column(filename, col) for col in range(14, 39)]
+
+    data = np.array(columns)
+    data = data.T
+    bfek = data.reshape(1024, 5, 5) 
+
+    print(np.shape(bfek))
+    print(np.shape(bfek))
+    a = deconv(filename, 5, bfek)
+    kernel = np.nanmedian(a, axis=0)
+    print(kernel)
+    print(np.shape(kernel))
+    return kernel
+
+make_kernel("src/romanimpreprocess/L1_to_L2/bfe/icemon-car216-pass85-wfi06_summary.txt")
 
