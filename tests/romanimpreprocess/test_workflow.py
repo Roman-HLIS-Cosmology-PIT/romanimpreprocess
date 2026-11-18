@@ -7,6 +7,7 @@ import os
 
 import asdf
 import numpy as np
+import pytest
 from astropy.io import fits
 from astropy.stats import mad_std
 from astropy.wcs import WCS
@@ -1121,6 +1122,26 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
         imtest[2935:2953, 1731:1749] = 1
         # fits.PrimaryHDU(v).writeto("v.fits", overwrite=True)  # for diagnostic
         assert np.all(v == imtest)
+
+    # this tests the alternate sky fitting
+    # (really just checking that the moransi version curves in the right direction)
+    if subtr:
+        c2_altsky = c2 | {"SKYMASK": "moransi"}
+        c2_altsky["OUT"] = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_altsky.asdf"
+        gen_cal_image.calibrateimage(c2_altsky)
+        with asdf.open(c2_altsky["OUT"]) as af_alt, asdf.open(c2["OUT"]) as af:
+            diff = af_alt["roman"]["data"] - af["roman"]["data"]
+            assert -0.0008 < np.nanpercentile(diff, 5) < -0.0003
+            assert 0.002 < np.nanpercentile(diff, 95) < 0.0025
+            assert 0.002 < np.nanmedian(diff[2100:2200, 600:700]) < 0.0025
+        if cleanup:
+            os.remove(tmp_path / "OUT-L2/sim_L2_F184_163_4_altsky.asdf")
+
+        # this is even simpler, checks for sky methods that don't exist
+        c2_nomethod = c2 | {"SKYMASK": "Oh come let's sing Ohio's praise"}
+        c2_nomethod["OUT"] = tmp_dir + "/OUT-L2/null.asdf"  # won't actually write here
+        with pytest.raises(ValueError):
+            gen_cal_image.calibrateimage(c2_nomethod)
 
     if cleanup:
         if not subtr:

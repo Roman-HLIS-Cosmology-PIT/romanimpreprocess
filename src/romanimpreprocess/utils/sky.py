@@ -23,8 +23,11 @@ from scipy.special import legendre_p
 
 try:
     from moransi_sourcemasking import make_sourcemask
-except ImportError as err:
-    raise ImportError("Moran's I sky masking requires the moransi_sourcemasking package") from err
+except ImportError:  # pragma: no cover
+
+    def make_sourcemask(*args, **kwargs):
+        """Raise an error if we call this function and we don't have moransi_sourcemasking installed."""
+        raise ImportError("Moran's I sky masking requires the moransi_sourcemasking package")
 
 
 def binkxk(arr, k):
