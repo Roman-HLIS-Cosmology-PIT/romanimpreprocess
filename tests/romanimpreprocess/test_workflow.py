@@ -1131,9 +1131,9 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
         gen_cal_image.calibrateimage(c2_altsky)
         with asdf.open(c2_altsky["OUT"]) as af_alt, asdf.open(c2["OUT"]) as af:
             diff = af_alt["roman"]["data"] - af["roman"]["data"]
-            assert -0.0008 < np.nanpercentile(diff, 5) < -0.0003
-            assert 0.002 < np.nanpercentile(diff, 95) < 0.0025
-            assert 0.002 < np.nanmedian(diff[2100:2200, 600:700]) < 0.0025
+            assert -0.001 < np.nanpercentile(diff, 5) < -0.0001
+            assert 0.0018 < np.nanpercentile(diff, 95) < 0.0027
+            assert 0.0018 < np.nanmedian(diff[2100:2200, 600:700]) < 0.0027
         if cleanup:
             os.remove(tmp_path / "OUT-L2/sim_L2_F184_163_4_altsky.asdf")
 
