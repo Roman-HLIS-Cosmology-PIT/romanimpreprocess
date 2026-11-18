@@ -92,6 +92,14 @@ The configuration is a Python dictionary (normally read from a YAML file).
 
 - ``SKYORDER``: If provided, then subtracts a median-based sky model that is a 2D polynomial of the given order.
 
+- ``SKYMASK``: Source masking for the sky estimate: ``'none'`` or ``'moransi'``, which excludes pixels flagged as sources by the sliding-patch Moran's I statistic. This uses Henry Ferguson's `moransi_sourcemasking <https://github.com/hcferguson/moransi_sourcemasking>`_ package. The mask is used for both ``medsky`` and the ``SKYORDER`` fit.
+
+- ``SKYMASK_PARS``: Optional dictionary of ``moransi_sourcemasking`` control parameters (e.g., ``patch_size``, ``kernel_width``, ``n_box_passes``, ``opening_iterations``, ``threshold_type``, ``threshold_value``), plus ``dilate`` (pixels by which to grow the source mask). Unspecified parameters take that package's defaults.
+
+- ``SKYFITCLIP``: If provided, the ``SKYORDER`` polynomial fit is iterated, rejecting boxes whose residual exceeds this many sigmas.
+
+- ``SKYNBOX``: Number of sky boxes per axis for the ``SKYORDER`` fit (default 8).
+
 - ``NOISE_PRECISION``: The precision to store noise fields, as number of bits in IEEE 754 floating point convention. Options are 16 and 32 (default = 32).
 
 - ``SATURATION_BACKUP``: The number of frames to "back up" when checking for saturation. This will probably be 0 (SOC) or 1 (PIT) though any non-negative integer is valid. The frame backup parameter defaults to 1 in the saturation check if not included here.
@@ -116,6 +124,8 @@ A sample file would be:
       mask: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_mask_DUMMY20250521_SCA10.asdf'
       saturation: '/fs/scratch/PCON0003/cond0007/cal/roman_wfi_saturation_DUMMY20250521_SCA10.asdf'
     SKYORDER: 2
+    SKYMASK: moransi
+    SKYFITCLIP: 3.0
     RAMP_OPT_PARS:
       slope: 0.4
       gain: 1.8
