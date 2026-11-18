@@ -2,6 +2,7 @@
 
 
 import contextlib
+import copy
 import gzip
 import os
 
@@ -1135,6 +1136,40 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
             assert 0.0018 < np.nanpercentile(diff, 95) < 0.0027
             assert 0.0018 < np.nanmedian(diff[2100:2200, 600:700]) < 0.0027
         if cleanup:
+            os.remove(tmp_path / "OUT-L2/sim_L2_F184_163_4_altsky.asdf")
+
+        # make an image with a bump
+        _x, _y = np.meshgrid(np.linspace(0, 4087, 4088), np.linspace(0, 4087, 4088))
+        delta = 10.0 * np.exp(-np.hypot(_x - 1000, _y - 3000) / 500.0) + 0.5 * np.cos(
+            np.sqrt(5) * _x + np.sqrt(3) * _y
+        )
+        del _x, _y
+        with asdf.open(tmp_dir + f"/OUT-L1/sim_L1_{band:s}_{id:d}_{sca:d}.asdf") as af:
+            tree = copy.deepcopy(af.tree)
+        tree["roman"]["data"][-1, 4:-4, 4:-4] = np.clip(
+            tree["roman"]["data"][-1, 4:-4, 4:-4] + np.round(2.5 * delta).astype(np.int32), 0, 65535
+        )
+        tree["roman"]["data"][-2, 4:-4, 4:-4] = np.clip(
+            tree["roman"]["data"][-2, 4:-4, 4:-4] + np.round(2.0 * delta).astype(np.int32), 0, 65535
+        )
+        tree["roman"]["data"][-3, 4:-4, 4:-4] = np.clip(
+            tree["roman"]["data"][-3, 4:-4, 4:-4] + np.round(delta).astype(np.int32), 0, 65535
+        )
+        asdf.AsdfFile(tree).write_to(tmp_dir + f"/OUT-L1/simwithbump_L1_{band:s}_{id:d}_{sca:d}.asdf")
+        c2or = copy.deepcopy(c2)
+        c2or["IN"] = tmp_dir + f"/OUT-L1/simwithbump_L1_{band:s}_{id:d}_{sca:d}.asdf"
+        c2or["OUT"] = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_orsky.asdf"
+        gen_cal_image.calibrateimage(c2or)
+        c2_altsky = c2or | {"SKYMASK": "moransi", "SKYFITCLIP": 5.0}
+        c2_altsky["OUT"] = tmp_dir + f"/OUT-L2/sim_L2_{band:s}_{id:d}_{sca:d}_altsky.asdf"
+        gen_cal_image.calibrateimage(c2_altsky)
+        with asdf.open(c2_altsky["OUT"]) as af_alt, asdf.open(c2or["OUT"]) as af:
+            diff = af_alt["roman"]["data"] - af["roman"]["data"]
+            assert 0.4 < np.median(af["roman"]["data"][2900:3100, 900:1100]) < 0.6
+            assert 0.025 < np.median(diff[2900:3100, 900:1100]) < 0.03
+        if cleanup:
+            os.remove(tmp_path / "OUT-L1/simwithbump_L1_F184_163_4.asdf")
+            os.remove(tmp_path / "OUT-L2/sim_L2_F184_163_4_orsky.asdf")
             os.remove(tmp_path / "OUT-L2/sim_L2_F184_163_4_altsky.asdf")
 
         # this is even simpler, checks for sky methods that don't exist
