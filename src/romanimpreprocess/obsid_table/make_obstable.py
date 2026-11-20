@@ -1,6 +1,7 @@
 import asdf
 import gwcs
 import numpy as np
+import roman_datamodels as rdm
 from asdf.yamlutil import tagged_tree_to_custom_tree
 
 import copy
@@ -12,11 +13,15 @@ def make_obstable_row(wcs_file):
         awcs = copy.deepcopy(af["roman"]["wcs_l2"])
         with asdf.AsdfFile() as ag:
             g = tagged_tree_to_custom_tree(awcs, ag) # open the gwcs file # now that this is a gwcs we can react with it normally
+        f = rdm.open(af).copy()
 
     # save the features that do not need to be converted
-    # date
-    # exptime
-    # filter
+    date = f.meta.file_date
+    exptime = f.meta.exposure.exposure_time
+    filter = f.meta.instrument.optical_element
+    filename = f.meta.filename
+    program = f.meta.observation.program
+    obsID = f.meta.observation.observation_id
     # SOC meta data
 
     # find the ra and dec values of the WFI center, C
@@ -57,12 +62,9 @@ def make_obstable_row(wcs_file):
     E = np.array([-np.sin(ra_C), np.cos(ra_C), 0])
     PA = np.arctan2(np.dot(E,(A-B)), np.dot(N, (A-B)))
 
+    table_row = {"date": date, "exptime": exptime, "ra": ra_C, "dec": dec_C, "pa": PA, "filter": filter, "filename": filename, "program": program, "OBSID": obsID}
 
-
-    table_row = {"gwcs": g}
-
-    return table_row # needs date, exptime, ra, dec, pa, filter, SOC metadata
-
+    return table_row
 
 
 # use case to show that the function itself workds
