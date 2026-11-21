@@ -3,6 +3,7 @@ import gwcs
 import numpy as np
 import roman_datamodels as rdm
 from asdf.yamlutil import tagged_tree_to_custom_tree
+from astropy.time import Time
 
 import copy
 import sys
@@ -15,14 +16,17 @@ def make_obstable_row(wcs_file):
             g = tagged_tree_to_custom_tree(awcs, ag) # open the gwcs file # now that this is a gwcs we can react with it normally
         f = rdm.open(af).copy()
 
-    # save the features that do not need to be converted
+    # save the meta data
     date = f.meta.file_date
     exptime = f.meta.exposure.exposure_time
     filter = f.meta.instrument.optical_element
     filename = f.meta.filename
     program = f.meta.observation.program
     obsID = f.meta.observation.observation_id
-    # SOC meta data
+    # other SOC meta data?
+
+    # convert the date to MJD
+    date_MJD = Time(date, format="iso", scale="utc").mjd
 
     # find the ra and dec values of the WFI center, C
     # define field positions (fixed to WFI01) in degrees
@@ -62,7 +66,7 @@ def make_obstable_row(wcs_file):
     E = np.array([-np.sin(ra_C), np.cos(ra_C), 0])
     PA = np.arctan2(np.dot(E,(A-B)), np.dot(N, (A-B)))
 
-    table_row = {"date": date, "exptime": exptime, "ra": ra_C, "dec": dec_C, "pa": PA, "filter": filter, "filename": filename, "program": program, "OBSID": obsID}
+    table_row = {"date": date_MJD, "exptime": exptime, "ra": ra_C, "dec": dec_C, "pa": PA, "filter": filter, "filename": filename, "program": program, "OBSID": obsID}
 
     return table_row
 
