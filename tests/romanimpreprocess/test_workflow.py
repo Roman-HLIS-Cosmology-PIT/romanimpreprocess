@@ -15,6 +15,7 @@ from astropy.wcs import WCS
 from roman_datamodels.dqflags import pixel
 from romanimpreprocess.from_sim import sim_to_isim
 from romanimpreprocess.L1_to_L2 import gen_cal_image, gen_noise_image
+from romanimpreprocess.obsid_table.make_obstable import make_obstable_row
 from romanimpreprocess.utils import fpaplot, ipc_linearity, maskhandling, orientation, visualize
 
 # Settings for this test
@@ -1237,6 +1238,23 @@ def run_all(tmp_path, subtr, checkdata, cleanup=True):
             os.remove(tmp_path / f"OUT-L2/{rf}")
 
     return image, mask
+
+
+def test_obsid_table(tmp_path):
+    """Test for obsid table function."""
+
+    fn = str(tmp_path) + "/myobs_wcs.asdf"
+    _write_wcs(fn)
+    row = make_obstable_row(fn)
+    print(row)
+
+    assert np.abs(row["date"] - 61325.122301435185) < 1.0e-6
+    assert 306.5 < row["exptime"] < 307.0
+    assert 58.34 < row["ra"] < 58.35
+    assert -49.34 < row["dec"] < -49.33
+    assert 244.5 < row["pa"] < 245.5
+    assert row["filter"] == "R062"
+    assert row["filename"] == "r0106202001001001001_0001_wfi05_f062_wcs.asdf"
 
 
 def test_run_all(tmp_path):

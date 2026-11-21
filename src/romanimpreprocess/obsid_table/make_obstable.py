@@ -25,6 +25,20 @@ def make_obstable_row(wcs_file):
 
     deg = np.pi / 180.0  # lots of conversions with degrees
 
+    filter_mapping = {
+        "F062": "R062",
+        "F087": "Z087",
+        "F106": "Y106",
+        "F129": "J129",
+        "F158": "H158",
+        "F184": "F184",
+        "F213": "K213",
+        "F146": "W146",
+        "P127": "PRSM",
+        "G150": "GRSM",
+        "DARK": "DARK",
+    }
+
     with asdf.open(wcs_file) as af:
         awcs = copy.deepcopy(af["roman"]["wcs_l2"])
         with asdf.AsdfFile() as ag:
@@ -115,7 +129,7 @@ def make_obstable_row(wcs_file):
         "ra": ra_C,
         "dec": dec_C,
         "pa": PA,
-        "filter": filter,
+        "filter": filter_mapping[filter],
         "filename": filename,
         "program": program,
         "OBSID": obsID,
