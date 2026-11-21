@@ -48,5 +48,6 @@ def make_kernel(filename):
     print(np.shape(kernel))
     return kernel
 
-make_kernel("src/romanimpreprocess/L1_to_L2/bfe/icemon-car216-pass85-wfi06_summary.txt")
+if __name__ == "__main__":  # pragma: no cover
+     make_kernel("src/romanimpreprocess/L1_to_L2/bfe/icemon-car216-pass85-wfi06_summary.txt")
 
