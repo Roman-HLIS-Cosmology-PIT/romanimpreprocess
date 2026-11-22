@@ -1250,8 +1250,8 @@ def test_obsid_table(tmp_path):
 
     assert np.abs(row["date"] - 61325.122301435185) < 1.0e-6
     assert 306.5 < row["exptime"] < 307.0
-    assert 58.34 < row["ra"] < 58.35
-    assert -49.34 < row["dec"] < -49.33
+    assert 58.345 < row["ra"] < 58.355
+    assert -49.345 < row["dec"] < -49.335
     assert 244.5 < row["pa"] < 245.5
     assert row["filter"] == "R062"
     assert row["filename"] == "r0106202001001001001_0001_wfi05_f062_wcs.asdf"

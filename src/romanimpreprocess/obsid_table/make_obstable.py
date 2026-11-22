@@ -68,9 +68,9 @@ def make_obstable_row(wcs_file):
     YANB = -0.09810 * deg
 
     # find the angles between
-    AC = np.sqrt(XANA**2 + YANA**2) * deg
-    BC = np.sqrt(XANB**2 + YANB**2) * deg
-    AB = np.sqrt((XANA - XANB) ** 2 + (YANA - YANB) ** 2) * deg
+    AC = np.sqrt(XANA**2 + YANA**2)
+    BC = np.sqrt(XANB**2 + YANB**2)
+    AB = np.sqrt((XANA - XANB) ** 2 + (YANA - YANB) ** 2)
 
     # define the constants used to find C
     # these formulae were unstable for small angles so I re-wrote them to not have cancellations
